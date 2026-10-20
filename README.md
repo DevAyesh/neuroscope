@@ -157,13 +157,26 @@ NeuroScope's curriculum addresses 6 core theoretical challenges in machine learn
 Introductory courses often depict deep networks as a black box where inputs enter and predictions magically emerge. This prevents students from understanding where bugs like exploding numerical outputs or dead activations originate.
 
 #### Mathematical Foundation
+
 NeuroScope breaks down every neuron $j$ in layer $l$ into explicit sequential steps:
-1. **Pre-activation Weighted Sum ($z_j$):**
-   $$z_j^{(l)} = \sum_{i=0}^{n-1} \left( w_{ij}^{(l)} \cdot a_i^{(l-1)} \right) + b_j^{(l)}$$
-2. **Non-Linear Output ($a_j$):**
-   $$a_j^{(l)} = \sigma\left(z_j^{(l)}\right)$$
-3. **Instantaneous Analytical Derivative ($f'(z_j)$):**
-   $$f'\left(z_j^{(l)}\right) = \frac{\partial a_j^{(l)}}{\partial z_j^{(l)}}$$
+
+1. **Pre-activation Weighted Sum** ($z_j$):
+
+   ```math
+   z_j^{(l)} = \sum_{i=0}^{n-1} \left( w_{ij}^{(l)} \cdot a_i^{(l-1)} \right) + b_j^{(l)}
+   ```
+
+2. **Non-Linear Output** ($a_j$):
+
+   ```math
+   a_j^{(l)} = \sigma\left(z_j^{(l)}\right)
+   ```
+
+3. **Instantaneous Analytical Derivative** ($f'(z_j)$):
+
+   ```math
+   f'\left(z_j^{(l)}\right) = \frac{\partial a_j^{(l)}}{\partial z_j^{(l)}}
+   ```
 
 #### Visual & Telemetry Cues
 - **Hover Inspection HUD:** Point your cursor at any neuron to inspect a detailed list of every incoming synapse, showing $w_{ij}$, incoming activation $a_i$, their scalar product $w_{ij} \cdot a_i$, and the accumulated bias $b_j$.
@@ -178,11 +191,23 @@ NeuroScope breaks down every neuron $j$ in layer $l$ into explicit sequential st
 Why can't a network made of 50 stacked linear layers classify an XOR gate or a spiral manifold? Students frequently struggle to explain why activation functions are necessary.
 
 #### Mathematical Proof of Linear Collapse
+
 Consider a 2-layer network with linear activations ($a = z$):
-$$z^{(1)} = \mathbf{W}_1 \mathbf{x} + \mathbf{b}_1$$
-$$z^{(2)} = \mathbf{W}_2 z^{(1)} + \mathbf{b}_2 = \mathbf{W}_2(\mathbf{W}_1 \mathbf{x} + \mathbf{b}_1) + \mathbf{b}_2 = (\mathbf{W}_2 \mathbf{W}_1)\mathbf{x} + (\mathbf{W}_2 \mathbf{b}_1 + \mathbf{b}_2)$$
+
+```math
+z^{(1)} = \mathbf{W}_1 \mathbf{x} + \mathbf{b}_1
+```
+
+```math
+z^{(2)} = \mathbf{W}_2 z^{(1)} + \mathbf{b}_2 = \mathbf{W}_2(\mathbf{W}_1 \mathbf{x} + \mathbf{b}_1) + \mathbf{b}_2 = (\mathbf{W}_2 \mathbf{W}_1)\mathbf{x} + (\mathbf{W}_2 \mathbf{b}_1 + \mathbf{b}_2)
+```
+
 Defining $\mathbf{W}' = \mathbf{W}_2 \mathbf{W}_1$ and $\mathbf{b}' = \mathbf{W}_2 \mathbf{b}_1 + \mathbf{b}_2$, this collapses to:
-$$z^{(2)} = \mathbf{W}' \mathbf{x} + \mathbf{b}'$$
+
+```math
+z^{(2)} = \mathbf{W}' \mathbf{x} + \mathbf{b}'
+```
+
 No matter how many linear layers are added, the composite function remains an affine transformation—incapable of carving non-linear decision boundaries.
 
 #### Non-Linear Space Warping
@@ -200,20 +225,40 @@ Non-linear activations ($\text{ReLU}, \tanh, \sigma$) fold, bend, and stretch th
 Deep learning architectures routinely suffer from numerical stability failures. Understanding why networks freeze or diverge requires observing gradients at the single-neuron level.
 
 #### Failure Mode A: The Dying ReLU Problem (Necrosis)
+
 - **Mathematical Cause:** For the standard rectified linear unit:
-  $$\text{ReLU}(z) = \max(0, z), \quad \text{ReLU}'(z) = \begin{cases} 1 & z > 0 \\ 0 & z \le 0 \end{cases}$$
+
+  ```math
+  \text{ReLU}(z) = \max(0, z), \quad \text{ReLU}'(z) = \begin{cases} 1 & z > 0 \\ 0 & z \le 0 \end{cases}
+  ```
+
   If an aggressive learning rate or large negative bias pushes pre-activation $z < 0$ for all training samples in the dataset, the derivative $f'(z) = 0$ permanently:
-  $$\delta_j = \frac{\partial \mathcal{L}}{\partial z_j} = \left( \sum_k \delta_k w_{jk} \right) \cdot 0 = 0$$
+
+  ```math
+  \delta_j = \frac{\partial \mathcal{L}}{\partial z_j} = \left( \sum_k \delta_k w_{jk} \right) \cdot 0 = 0
+  ```
+
   Since $\Delta w_{ij} = -\eta \cdot \delta_j \cdot a_i = 0$, the weights can **never update again**. The neuron is mathematically dead.
+
 - **Visual & Acoustic Alert:** Dead neurons turn crimson with a tombstone marker (`†`), gradients read `0.0000`, and the Web Audio synthesizer triggers a continuous **58Hz sawtooth flatline buzzer**.
 - **The Cure:** Clicking **"REVIVE LEAKY"** introduces a small positive slope ($\alpha = 0.01$ for $z \le 0$), restoring non-zero gradients and reviving necrotic nodes.
 
 #### Failure Mode B: Vanishing Gradients in Deep Networks
+
 - **Mathematical Cause:** For Sigmoid activation:
-  $$\sigma'(z) = \sigma(z)(1 - \sigma(z)) \le 0.25$$
+
+  ```math
+  \sigma'(z) = \sigma(z)(1 - \sigma(z)) \le 0.25
+  ```
+
   In a deep 6-layer network, applying the Chain Rule backwards across $L$ layers multiplies these derivatives:
-  $$\prod_{l=1}^L \sigma'\left(z^{(l)}\right) \le (0.25)^L = (0.25)^6 \approx 0.000244$$
+
+  ```math
+  \prod_{l=1}^L \sigma'\left(z^{(l)}\right) \le (0.25)^L = (0.25)^6 \approx 0.000244
+  ```
+
   The backpropagated error gradient decays exponentially before reaching Layer 1, freezing early representation learning.
+
 - **Visual Cues:** In the **Vanishing vs. Exploding Gradients** preset (`vanishing_grad`), magenta backprop particles extinguished midway across the network, while Layer 1 gradient norms drop to $0.0000$. Switching to ReLU restores gradient flow throughout all 6 layers.
 
 ---
@@ -224,15 +269,32 @@ Deep learning architectures routinely suffer from numerical stability failures. 
 Backpropagation is often taught as an abstract algorithm involving matrix calculus. Students fail to realize that it is the direct application of the standard Single-Variable and Multivariate Chain Rule.
 
 #### Step-by-Step Derivation
+
 For Mean Squared Error loss $\mathcal{L} = \frac{1}{2}\sum_k (a_k - y_k)^2$ and output neuron $k$:
-1. **Output Error Sensitivity ($\delta_k$):**
-   $$\delta_k = \frac{\partial \mathcal{L}}{\partial z_k} = \frac{\partial \mathcal{L}}{\partial a_k} \cdot \frac{\partial a_k}{\partial z_k} = (a_k - y_k) \cdot \sigma'(z_k)$$
-2. **Hidden Layer Error Sensitivity ($\delta_j$):**
-   $$\delta_j = \frac{\partial \mathcal{L}}{\partial z_j} = \sum_{k} \left( \frac{\partial \mathcal{L}}{\partial z_k} \cdot \frac{\partial z_k}{\partial a_j} \right) \cdot \frac{\partial a_j}{\partial z_j} = \left( \sum_k \delta_k \cdot w_{jk} \right) \cdot \sigma'(z_j)$$
-3. **Synaptic Weight Gradient ($\frac{\partial \mathcal{L}}{\partial w_{ij}}$):**
-   $$\frac{\partial \mathcal{L}}{\partial w_{ij}} = \frac{\partial \mathcal{L}}{\partial z_j} \cdot \frac{\partial z_j}{\partial w_{ij}} = \delta_j \cdot a_i$$
-4. **Weight Update:**
-   $$w_{ij} \leftarrow w_{ij} - \eta \cdot \frac{\partial \mathcal{L}}{\partial w_{ij}}$$
+
+1. **Output Error Sensitivity** ($\delta_k$):
+
+   ```math
+   \delta_k = \frac{\partial \mathcal{L}}{\partial z_k} = \frac{\partial \mathcal{L}}{\partial a_k} \cdot \frac{\partial a_k}{\partial z_k} = (a_k - y_k) \cdot \sigma'(z_k)
+   ```
+
+2. **Hidden Layer Error Sensitivity** ($\delta_j$):
+
+   ```math
+   \delta_j = \frac{\partial \mathcal{L}}{\partial z_j} = \sum_{k} \left( \frac{\partial \mathcal{L}}{\partial z_k} \cdot \frac{\partial z_k}{\partial a_j} \right) \cdot \frac{\partial a_j}{\partial z_j} = \left( \sum_k \delta_k \cdot w_{jk} \right) \cdot \sigma'(z_j)
+   ```
+
+3. **Synaptic Weight Gradient** ($\frac{\partial \mathcal{L}}{\partial w_{ij}}$):
+
+   ```math
+   \frac{\partial \mathcal{L}}{\partial w_{ij}} = \frac{\partial \mathcal{L}}{\partial z_j} \cdot \frac{\partial z_j}{\partial w_{ij}} = \delta_j \cdot a_i
+   ```
+
+4. **Weight Update**:
+
+   ```math
+   w_{ij} \leftarrow w_{ij} - \eta \cdot \frac{\partial \mathcal{L}}{\partial w_{ij}}
+   ```
 
 #### Visual & Telemetry Cues
 - **Step Math X-Ray Mode:** Pauses continuous training into an illuminated 5-phase deterministic cycle:
@@ -250,10 +312,18 @@ For Mean Squared Error loss $\mathcal{L} = \frac{1}{2}\sum_k (a_k - y_k)^2$ and 
 Classical von Neumann software is brittle: a single flipped bit or null pointer exception crashes the entire program. How do connectionist architectures survive severe hardware damage?
 
 #### Mathematical Formulation of Distributed Representations
+
 Information in deep networks is not stored in a localized memory address; it is distributed across thousands of synaptic scalar weights. If neuron $k$ in layer $l$ is ablated ($a_k^{(l)} \equiv 0$):
-$$\mathcal{L}_{\text{damaged}} = \mathcal{L}(\mathbf{W} \setminus \{w_{*k}\}) > \mathcal{L}_{\text{optimal}}$$
+
+```math
+\mathcal{L}_{\text{damaged}} = \mathcal{L}(\mathbf{W} \setminus \{w_{*k}\}) > \mathcal{L}_{\text{optimal}}
+```
+
 Because the loss surface $\mathcal{L}$ remains differentiable with respect to all surviving synapses, gradient descent automatically re-optimizes the remaining parameters:
-$$\Delta w_{ij} = -\eta \frac{\partial \mathcal{L}_{\text{damaged}}}{\partial w_{ij}} \implies \lim_{t \to \infty} \mathcal{L}(t) \to \mathcal{L}_{\text{recovered}}$$
+
+```math
+\Delta w_{ij} = -\eta \frac{\partial \mathcal{L}_{\text{damaged}}}{\partial w_{ij}} \implies \lim_{t \to \infty} \mathcal{L}(t) \to \mathcal{L}_{\text{recovered}}
+```
 
 #### Visual & Telemetry Cues
 - **Direct Canvas Ablation:** Click any neuron on the canvas to sever it. The node body is struck through with a red `X`, its outgoing synapses turn faint red, and the loss oscilloscope displays an instantaneous spike.
@@ -268,14 +338,29 @@ $$\Delta w_{ij} = -\eta \frac{\partial \mathcal{L}_{\text{damaged}}}{\partial w_
 Students often view hyperparameters (learning rate $\eta$, momentum $\beta$, optimizer choice) as magical parameters tuned through trial and error rather than understanding their physical meaning on the loss surface.
 
 #### Physical Mechanics of Optimization
+
 - **Standard Gradient Descent (SGD):**
-  $$w_{t+1} = w_t - \eta \nabla \mathcal{L}(w_t)$$
+
+  ```math
+  w_{t+1} = w_t - \eta \nabla \mathcal{L}(w_t)
+  ```
+
   Suffers from severe perpendicular oscillations in steep ravines with high curvature condition numbers.
+
 - **Polyak Momentum:**
-  $$v_{t+1} = \beta v_t + \eta \nabla \mathcal{L}(w_t), \quad w_{t+1} = w_t - v_{t+1}$$
+
+  ```math
+  v_{t+1} = \beta v_t + \eta \nabla \mathcal{L}(w_t), \quad w_{t+1} = w_t - v_{t+1}
+  ```
+
   Accumulates velocity along consistent gradient directions while canceling high-frequency perpendicular chatter, accelerating through ravines and flat plateaus.
+
 - **Weight Perturbation (Jitter):**
-  $$w_{ij} \leftarrow w_{ij} + \mathcal{N}(0, \sigma^2)$$
+
+  ```math
+  w_{ij} \leftarrow w_{ij} + \mathcal{N}(0, \sigma^2)
+  ```
+
   Injects isotropic Gaussian noise into the weight tensor to jump out of shallow local minima or saddle points.
 
 #### Visual & Telemetry Cues
@@ -386,7 +471,7 @@ When opened by a student or colleague, the application parses the query paramete
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/ayesh/neuroscope.git
+git clone https://github.com/DevAyesh/neuroscope.git
 cd neuroscope
 npm install
 ```
