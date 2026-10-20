@@ -169,42 +169,42 @@ export default function GuidedTour() {
             <rect width="100%" height="100%" fill="white" />
             {/* Black cutout 1: reveals primary spotlighted element */}
             <rect
-              x={targetX - 10}
-              y={targetY - 10}
-              width={targetWidth + 20}
-              height={targetHeight + 20}
-              rx={16}
+              x={targetX - 8}
+              y={targetY - 8}
+              width={targetWidth + 16}
+              height={targetHeight + 16}
+              rx={2}
               fill="black"
             />
             {/* Black cutout 2: reveals secondary spotlighted element (Step 3: Activation Graph) */}
             {hasSecondary && (
               <rect
-                x={secX - 8}
-                y={secY - 8}
-                width={secWidth + 16}
-                height={secHeight + 16}
-                rx={16}
+                x={secX - 6}
+                y={secY - 6}
+                width={secWidth + 12}
+                height={secHeight + 12}
+                rx={2}
                 fill="black"
               />
             )}
           </mask>
         </defs>
-        {/* Semi-transparent dark obsidian veil */}
+        {/* Subtle dark backdrop */}
         <rect
           width="100%"
           height="100%"
-          fill="rgba(5, 8, 15, 0.82)"
+          fill="rgba(0, 0, 0, 0.65)"
           mask="url(#tour-spotlight-cutout)"
         />
       </svg>
 
-      {/* 2A. Primary Glowing Animated Spotlight Target Border */}
+      {/* 2A. Primary Cutout Spotlight Border (Clean 1px solid white/35, no reticles) */}
       <div
         style={{
-          left: `${targetX - 10}px`,
-          top: `${targetY - 10}px`,
-          width: `${targetWidth + 20}px`,
-          height: `${targetHeight + 20}px`,
+          left: `${targetX - 8}px`,
+          top: `${targetY - 8}px`,
+          width: `${targetWidth + 16}px`,
+          height: `${targetHeight + 16}px`,
         }}
         onClick={
           tourStep === 4
@@ -222,204 +222,137 @@ export default function GuidedTour() {
             ? 'Click to trigger Backpropagation Pulse'
             : undefined
         }
-        className={`absolute rounded-2xl border-2 border-cyan-400 shadow-[0_0_35px_rgba(6,182,212,0.65)] transition-all duration-300 animate-pulse ${
-          tourStep === 4
-            ? 'pointer-events-auto cursor-pointer hover:border-red-400 hover:shadow-red-500/60'
-            : tourStep === 3
-            ? 'pointer-events-auto cursor-pointer hover:border-purple-400 hover:shadow-purple-500/60'
+        className={`absolute rounded-[2px] border border-white/35 transition-all duration-200 ${
+          tourStep === 4 || tourStep === 3
+            ? 'pointer-events-auto cursor-pointer'
             : 'pointer-events-none'
         }`}
-      >
-        {/* Corner Reticles */}
-        <div className="absolute -top-1.5 -left-1.5 w-3 h-3 border-t-2 border-l-2 border-cyan-300" />
-        <div className="absolute -top-1.5 -right-1.5 w-3 h-3 border-t-2 border-r-2 border-cyan-300" />
-        <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 border-b-2 border-l-2 border-cyan-300" />
-        <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 border-b-2 border-r-2 border-cyan-300" />
+      />
 
-        {/* Target Badge Label */}
-        {spotlightTarget?.title && (
-          <div className="absolute -top-6 left-2 px-2 py-0.5 bg-cyan-950/90 border border-cyan-500/60 rounded text-[9px] text-cyan-300 font-bold tracking-wider uppercase backdrop-blur-sm">
-            {spotlightTarget.title}
-          </div>
-        )}
-
-        {/* Step 5 Interactive Click Badge on Reticle */}
-        {tourStep === 4 && (
-          <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-1 bg-red-950/95 border border-red-500/80 rounded-full text-[9px] text-red-200 font-bold tracking-wider uppercase backdrop-blur-sm shadow-lg flex items-center space-x-1.5 animate-bounce">
-            <Skull className="w-3 h-3 text-red-400" />
-            <span>{hasKilledNeuron ? 'CLICK TO RESTORE L1-N0' : 'CLICK TO KILL L1-N0'}</span>
-          </div>
-        )}
-
-        {/* Step 4 Interactive Click Badge on Reticle */}
-        {tourStep === 3 && (
-          <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-1 bg-purple-950/95 border border-purple-500/80 rounded-full text-[9px] text-purple-200 font-bold tracking-wider uppercase backdrop-blur-sm shadow-lg flex items-center space-x-1.5">
-            <Zap className="w-3 h-3 text-purple-300" />
-            <span>CLICK TO TRIGGER ERROR CASCADE</span>
-          </div>
-        )}
-      </div>
-
-      {/* 2B. Secondary Glowing Animated Spotlight Target Border (Step 3: Activation Graph / Inspector) */}
+      {/* 2B. Secondary Cutout Spotlight Border (Step 3: Activation Graph / Inspector) */}
       {hasSecondary && (
         <div
           style={{
-            left: `${secX - 8}px`,
-            top: `${secY - 8}px`,
-            width: `${secWidth + 16}px`,
-            height: `${secHeight + 16}px`,
+            left: `${secX - 6}px`,
+            top: `${secY - 6}px`,
+            width: `${secWidth + 12}px`,
+            height: `${secHeight + 12}px`,
           }}
-          className="absolute pointer-events-none rounded-2xl border-2 border-cyan-400 shadow-[0_0_35px_rgba(6,182,212,0.65)] transition-all duration-300 animate-pulse"
-        >
-          {/* Corner Reticles */}
-          <div className="absolute -top-1.5 -left-1.5 w-3 h-3 border-t-2 border-l-2 border-cyan-300" />
-          <div className="absolute -top-1.5 -right-1.5 w-3 h-3 border-t-2 border-r-2 border-cyan-300" />
-          <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 border-b-2 border-l-2 border-cyan-300" />
-          <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 border-b-2 border-r-2 border-cyan-300" />
-
-          {/* Target Badge Label */}
-          {secondarySpotlightTarget.title && (
-            <div className="absolute -top-6 left-2 px-2 py-0.5 bg-cyan-950/90 border border-cyan-500/60 rounded text-[9px] text-cyan-300 font-bold tracking-wider uppercase backdrop-blur-sm">
-              {secondarySpotlightTarget.title}
-            </div>
-          )}
-        </div>
+          className="absolute pointer-events-none rounded-[2px] border border-white/35 transition-all duration-200"
+        />
       )}
 
-      {/* 3. Interactive Walkthrough Explanatory Card */}
+      {/* 3. Redesigned Tour Card: Compact Technical Popover Dock */}
       <div
-        className={`absolute ${cardPositionClass} w-[calc(100vw-32px)] sm:w-auto bg-[#0f1422]/98 border border-cyan-500/40 rounded-xl shadow-2xl backdrop-blur-xl p-4 sm:p-5 text-slate-200 transition-all duration-300 flex flex-col space-y-3.5 pointer-events-auto max-h-[85vh] overflow-y-auto`}
+        className={`absolute ${cardPositionClass} w-[calc(100vw-32px)] sm:w-auto bg-[#18191c] border border-[#2e3036] rounded-[2px] p-4 text-[#e4e4e7] transition-all duration-200 flex flex-col space-y-3 pointer-events-auto max-h-[85vh] overflow-y-auto font-mono`}
       >
         {/* Card Header: Step Pill & Close */}
-        <div className="flex items-center justify-between border-b border-[#1e293b] pb-2.5">
-          <div className="flex items-center space-x-2">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-            <span className="text-[10px] font-bold tracking-wider text-cyan-400 uppercase">
-              {currentStep.badge}
-            </span>
-          </div>
+        <div className="flex items-center justify-between border-b border-[#2a2b30] pb-2">
+          <span className="text-[10px] font-bold tracking-wider text-[#8e9299] uppercase">
+            {currentStep.badge}
+          </span>
 
           <button
             onClick={closeTour}
             title="Exit Guided Tour (Esc)"
-            className="p-1 rounded hover:bg-[#1e293b] text-slate-400 hover:text-white transition-colors"
+            className="p-1 rounded-[2px] hover:bg-[#2a2b30] text-[#8e9299] hover:text-[#e4e4e7] transition-colors"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {/* Title & Subtitle */}
-        <div className="space-y-1">
-          <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center space-x-2">
-            <span>{currentStep.title}</span>
+        <div className="space-y-0.5">
+          <h2 className="text-sm font-semibold text-[#e4e4e7] tracking-tight">
+            {currentStep.title}
           </h2>
-          <p className="text-xs text-cyan-300/90 font-medium">
+          <p className="text-xs text-[#8e9299]">
             {currentStep.subtitle}
           </p>
         </div>
 
-        {/* Mathematical Formula Box */}
-        <div className="bg-[#070a12] border border-cyan-900/50 rounded-lg p-2.5 font-mono text-[11px] text-amber-300 shadow-inner flex items-center justify-between overflow-x-auto">
-          <div className="flex items-center space-x-2">
-            <span className="text-slate-500 text-[10px] uppercase font-bold">[MATH]:</span>
-            <code className="text-cyan-300 font-semibold">{currentStep.mathFormula}</code>
-          </div>
+        {/* Mathematical Formula in dark #111215 code block */}
+        <div className="bg-[#111215] border border-[#2a2b30] rounded-[2px] p-2 font-mono text-[11px] text-[#e4e4e7] overflow-x-auto">
+          <code>{currentStep.mathFormula}</code>
         </div>
 
-        {/* Plain English Deep Dive */}
-        <p className="text-xs text-slate-300 leading-relaxed font-sans">
+        {/* Concise Plain English Text (max 2 sentences) */}
+        <p className="text-xs text-[#8e9299] leading-relaxed font-sans">
           {currentStep.plainEnglishExplanation}
         </p>
 
         {/* Interactive Step-Specific Action Elements */}
         {tourStep === 3 && (
-          <div className="bg-purple-950/40 border border-purple-500/40 rounded-lg p-3 flex items-center justify-between">
-            <div className="text-[11px] text-purple-200">
-              <span className="font-bold">Interactive Action:</span> Trigger an illuminated error pulse cascade!
-            </div>
+          <div className="bg-[#111215] border border-[#2a2b30] rounded-[2px] p-2 flex items-center justify-between">
+            <span className="text-[11px] text-[#8e9299]">Trigger backpropagation pulse</span>
             <button
               onClick={triggerBackpropPulse}
-              className="px-3 py-1.5 rounded bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold font-mono flex items-center space-x-1.5 shadow-lg shadow-purple-600/30 transition-all active:scale-95"
+              className="px-2.5 py-1 rounded-[2px] bg-[#3b82f6] hover:bg-[#2563eb] text-white text-xs font-semibold flex items-center space-x-1 transition-colors"
             >
-              <Zap className="w-3.5 h-3.5 fill-current" />
-              <span>TRIGGER PULSE</span>
+              <Zap className="w-3 h-3 fill-current" />
+              <span>PULSE</span>
             </button>
           </div>
         )}
 
         {tourStep === 4 && (
-          <div className="bg-[#121929] border border-red-500/40 rounded-lg p-3 space-y-2">
+          <div className="bg-[#111215] border border-[#2a2b30] rounded-[2px] p-2 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] text-red-300 font-bold flex items-center space-x-1.5">
-                <Skull className="w-3.5 h-3.5 text-red-400" />
-                <span>FAULT TOLERANCE SANDBOX</span>
-              </span>
+              <span className="text-[11px] text-[#8e9299] font-medium">Fault Tolerance Simulation</span>
               {hasKilledNeuron && (
-                <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/50 flex items-center space-x-1">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                  <span>NEURON SEVERED!</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded-[2px] bg-[#18191c] text-emerald-400 border border-emerald-500/40">
+                  SEVERED
                 </span>
               )}
             </div>
 
-            <p className="text-[11px] text-slate-300 font-sans">
-              {hasKilledNeuron
-                ? 'Great job! Notice how the disabled neuron is crossed out in red and its synapses are severed. The network dynamically adapts surrounding weights to recover prediction accuracy.'
-                : 'Click directly on the glowing neuron on the canvas, or click this button to simulate neuron dropout:'}
-            </p>
-
             <button
               onClick={() => toggleNeuronDisabled(1, 0)}
-              className={`w-full py-2 rounded text-xs font-bold font-mono flex items-center justify-center space-x-2 transition-all shadow-md ${
+              className={`w-full py-1.5 rounded-[2px] text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors border ${
                 hasKilledNeuron
-                  ? 'bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 border border-emerald-500/60'
-                  : 'bg-red-900/60 hover:bg-red-800 text-red-200 border border-red-500/60 animate-pulse'
+                  ? 'bg-[#18191c] hover:bg-[#222429] text-[#e4e4e7] border-[#2a2b30]'
+                  : 'bg-[#ef4444] hover:bg-[#dc2626] text-white border-transparent'
               }`}
             >
               {hasKilledNeuron ? (
                 <>
-                  <RotateCcw className="w-3.5 h-3.5" />
+                  <RotateCcw className="w-3 h-3" />
                   <span>RESTORE NEURON L1-N0</span>
                 </>
               ) : (
                 <>
-                  <Skull className="w-3.5 h-3.5" />
-                  <span>SIMULATE KILL: NEURON L1-N0</span>
+                  <Skull className="w-3 h-3" />
+                  <span>SEVER NEURON L1-N0</span>
                 </>
               )}
             </button>
           </div>
         )}
 
-        {/* Key Takeaway Pill */}
-        <div className="bg-[#161d2d]/80 rounded p-2 text-[10px] text-emerald-300 border border-emerald-900/40">
-          {currentStep.keyTakeaway}
-        </div>
-
         {/* Card Footer: Step Dots & Navigation */}
-        <div className="flex items-center justify-between pt-2 border-t border-[#1e293b]">
+        <div className="flex items-center justify-between pt-2 border-t border-[#2a2b30]">
           {/* Step Dots */}
-          <div className="flex items-center space-x-1.5">
+          <div className="flex items-center space-x-1">
             {TOUR_STEPS.map((_, idx) => (
               <button
                 key={idx}
                 onClick={() => setTourStep(idx)}
                 title={`Jump to Step ${idx + 1}`}
-                className={`h-2 rounded-full transition-all ${
+                className={`h-1 rounded-[1px] transition-all ${
                   idx === tourStep
-                    ? 'w-6 bg-cyan-400 shadow-sm shadow-cyan-400/50'
-                    : 'w-2 bg-[#1e293b] hover:bg-slate-600'
+                    ? 'w-5 bg-[#3b82f6]'
+                    : 'w-2 bg-[#2a2b30] hover:bg-[#3f424b]'
                 }`}
               />
             ))}
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1.5">
             {!isFirstStep && (
               <button
                 onClick={prevTourStep}
-                className="px-2.5 py-1.5 rounded bg-[#161d2d] hover:bg-[#1e293b] text-slate-300 hover:text-white border border-[#1e293b] text-xs font-semibold flex items-center space-x-1 transition-colors"
+                className="px-2.5 py-1 rounded-[2px] bg-[#18191c] hover:bg-[#222429] text-[#8e9299] hover:text-[#e4e4e7] border border-[#2a2b30] text-xs font-medium flex items-center space-x-1 transition-colors"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
                 <span>PREV</span>
@@ -429,17 +362,17 @@ export default function GuidedTour() {
             {isLastStep ? (
               <button
                 onClick={closeTour}
-                className="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center space-x-1.5 shadow-lg shadow-emerald-600/30 transition-all"
+                className="px-3.5 py-1 rounded-[2px] bg-[#3b82f6] hover:bg-[#2563eb] text-white text-xs font-semibold flex items-center space-x-1 transition-colors"
               >
-                <span>COMPLETE LESSON</span>
+                <span>COMPLETE</span>
                 <CheckCircle2 className="w-3.5 h-3.5" />
               </button>
             ) : (
               <button
                 onClick={nextTourStep}
-                className="px-3.5 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center space-x-1 shadow-lg shadow-cyan-600/30 transition-all"
+                className="px-3.5 py-1 rounded-[2px] bg-[#3b82f6] hover:bg-[#2563eb] text-white text-xs font-semibold flex items-center space-x-1 transition-colors"
               >
-                <span>NEXT STEP</span>
+                <span>NEXT</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             )}
