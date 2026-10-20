@@ -33,12 +33,12 @@ export default function StepMathXRay() {
   const actName = layer?.activation || 'relu';
 
   return (
-    <div className="bg-[#090d16] border border-purple-500/30 rounded-md p-2.5 font-mono text-xs flex flex-col justify-between shadow-lg shadow-purple-950/20 h-full overflow-hidden">
+    <div className="bg-[#18191c] border border-[#2a2b30] rounded-[2px] p-2.5 font-mono text-xs flex flex-col justify-between h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-[#1e293b] shrink-0">
+      <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-[#2a2b30] shrink-0">
         <div className="flex items-center space-x-1.5">
-          <Calculator className="w-3.5 h-3.5 text-purple-400" />
-          <span className="text-[10px] text-purple-300 uppercase font-semibold">
+          <Calculator className="w-3.5 h-3.5 text-zinc-400" />
+          <span className="text-[10px] text-zinc-200 uppercase font-semibold">
             MATH X-RAY STEP ENGINE
           </span>
         </div>
@@ -47,10 +47,10 @@ export default function StepMathXRay() {
             <button
               key={idx}
               onClick={() => setMathPhase(idx)}
-              className={`w-4 h-4 rounded text-[9px] font-bold flex items-center justify-center transition-colors ${
+              className={`w-4 h-4 rounded-[2px] text-[9px] font-bold flex items-center justify-center transition-colors border ${
                 stepMathIndex === idx
-                  ? 'bg-purple-600 text-white shadow-[0_0_8px_rgba(168,85,247,0.7)]'
-                  : 'bg-[#161d2d] text-slate-400 hover:text-slate-200'
+                  ? 'bg-[#25272c] border-[#3a3b40] text-zinc-100'
+                  : 'bg-[#111215] border-[#2a2b30] text-zinc-400 hover:text-white'
               }`}
               title={t.phaseName}
             >
@@ -61,22 +61,22 @@ export default function StepMathXRay() {
       </div>
 
       {/* Main Content Card */}
-      <div className="space-y-2 bg-[#07090e] border border-purple-900/30 rounded p-2 overflow-y-auto flex-1">
+      <div className="space-y-2 bg-[#111215] border border-[#2a2b30] rounded-[2px] p-2 overflow-y-auto flex-1">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-bold text-purple-300">
+          <span className="text-[11px] font-bold text-zinc-100">
             {currentTrace.phaseName}
           </span>
-          <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-950/80 border border-purple-500/40 text-purple-300">
+          <span className="text-[9px] px-1.5 py-0.5 rounded-[2px] bg-[#1f2024] border border-[#2a2b30] text-zinc-300">
             Phase {stepMathIndex + 1}/5
           </span>
         </div>
 
-        <p className="text-[10px] text-slate-400 leading-relaxed">
+        <p className="text-[10px] text-zinc-400 leading-relaxed">
           {currentTrace.explanation}
         </p>
 
         {/* Live Mathematical Formula Card */}
-        <div className="p-1.5 bg-[#0b0f19] border border-[#1e293b] rounded font-mono text-[11px] text-purple-200 overflow-x-auto whitespace-nowrap">
+        <div className="p-1.5 bg-[#18191c] border border-[#2a2b30] rounded-[2px] font-mono text-[11px] text-zinc-200 overflow-x-auto whitespace-nowrap">
           <code>{currentTrace.formula}</code>
         </div>
 
@@ -96,29 +96,29 @@ export default function StepMathXRay() {
         {/* Value Badges */}
         <div className="grid grid-cols-2 gap-1.5 text-[10px]">
           {currentTrace.zValue !== undefined && (
-            <div className="p-1 bg-[#161d2d] rounded border border-[#1e293b] flex justify-between">
-              <span className="text-slate-400">z (pre-act):</span>
+            <div className="p-1 bg-[#1f2024] rounded-[2px] border border-[#2a2b30] flex justify-between">
+              <span className="text-zinc-400">z (pre-act):</span>
               <span className="text-amber-400 font-bold">{currentTrace.zValue.toFixed(4)}</span>
             </div>
           )}
 
           {currentTrace.aValue !== undefined && (
-            <div className="p-1 bg-[#161d2d] rounded border border-[#1e293b] flex justify-between">
-              <span className="text-slate-400">a (post-act):</span>
-              <span className="text-cyan-400 font-bold">{currentTrace.aValue.toFixed(4)}</span>
+            <div className="p-1 bg-[#1f2024] rounded-[2px] border border-[#2a2b30] flex justify-between">
+              <span className="text-zinc-400">a (post-act):</span>
+              <span className="text-blue-400 font-bold">{currentTrace.aValue.toFixed(4)}</span>
             </div>
           )}
 
           {currentTrace.lossValue !== undefined && (
-            <div className="p-1 bg-[#161d2d] rounded border border-[#1e293b] flex justify-between">
-              <span className="text-slate-400">Loss (MSE):</span>
+            <div className="p-1 bg-[#1f2024] rounded-[2px] border border-[#2a2b30] flex justify-between">
+              <span className="text-zinc-400">Loss (MSE):</span>
               <span className="text-red-400 font-bold">{currentTrace.lossValue.toFixed(6)}</span>
             </div>
           )}
 
           {currentTrace.gradZ !== undefined && (
-            <div className="p-1 bg-[#161d2d] rounded border border-[#1e293b] flex justify-between">
-              <span className="text-slate-400">δ (∂L/∂z):</span>
+            <div className="p-1 bg-[#1f2024] rounded-[2px] border border-[#2a2b30] flex justify-between">
+              <span className="text-zinc-400">δ (∂L/∂z):</span>
               <span className="text-emerald-400 font-bold">{currentTrace.gradZ.toFixed(6)}</span>
             </div>
           )}
@@ -129,7 +129,7 @@ export default function StepMathXRay() {
       <div className="mt-1.5 grid grid-cols-2 gap-1.5 shrink-0">
         <button
           onClick={prevMathStep}
-          className="flex items-center justify-center space-x-1 py-1 bg-[#161d2d] hover:bg-[#1e293b] text-slate-300 font-semibold rounded text-xs transition-all border border-[#1e293b]"
+          className="flex items-center justify-center space-x-1 py-1 bg-[#1f2024] hover:bg-[#25272c] text-zinc-300 hover:text-white font-semibold rounded-[2px] text-xs transition-all border border-[#2a2b30]"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
           <span>PREV STEP</span>
@@ -137,7 +137,7 @@ export default function StepMathXRay() {
 
         <button
           onClick={nextMathStep}
-          className="flex items-center justify-center space-x-1 py-1 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white font-bold rounded text-xs transition-all shadow-md shadow-purple-900/40"
+          className="flex items-center justify-center space-x-1 py-1 bg-[#25272c] hover:bg-[#2e3036] text-zinc-100 font-bold rounded-[2px] text-xs transition-all border border-[#3a3b40]"
         >
           <span>NEXT STEP</span>
           <ChevronRight className="w-3.5 h-3.5" />

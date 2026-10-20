@@ -49,41 +49,41 @@ export default function DiagnosticsDrawer() {
 
   return (
     <div
-      className={`border-t border-[#1e293b] bg-[#0f141f] transition-all duration-300 flex flex-col font-mono z-30 select-none ${
+      className={`border-t border-[#2a2b30] bg-[#18191c] transition-all duration-300 flex flex-col font-mono z-30 select-none ${
         isOpen ? 'h-64 sm:h-60' : 'h-10'
       }`}
     >
       {/* High-Visibility Dock Bar / Telemetry HUD Header */}
-      <div className="h-10 bg-[#121826] px-3 sm:px-4 flex items-center justify-between border-b border-[#1e293b] text-xs shadow-md">
+      <div className="h-10 bg-[#1f2024] px-3 sm:px-4 flex items-center justify-between border-b border-[#2a2b30] text-xs shadow-none">
         {/* Left: Deck Title & Mode Indicators */}
         <div className="flex items-center space-x-2.5">
-          <div className="flex items-center space-x-1.5 font-bold text-xs text-slate-200">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-cyan-400" />
+          <div className="flex items-center space-x-1.5 font-bold text-xs text-zinc-200">
+            <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-400" />
             <span className="hidden sm:inline tracking-wider">DIAGNOSTICS & TELEMETRY DECK</span>
             <span className="sm:hidden tracking-wider">TELEMETRY</span>
           </div>
 
-          <div className="hidden xl:flex items-center space-x-2 text-[10px] text-slate-500">
+          <div className="hidden xl:flex items-center space-x-2 text-[10px] text-zinc-500">
             <span>• LOSS OSCILLOSCOPE</span>
             <span>• TERMINAL</span>
-            {is2DMode && <span className="text-cyan-400 font-semibold">• 2D HEATMAP</span>}
-            {isMathMode && <span className="text-purple-400 font-semibold">• STEP MATH X-RAY</span>}
+            {is2DMode && <span className="text-zinc-300 font-semibold">• 2D HEATMAP</span>}
+            {isMathMode && <span className="text-purple-300 font-semibold">• STEP MATH X-RAY</span>}
           </div>
         </div>
 
         {/* Right: Floating Telemetry & Loss Pill HUD with 1-Click Expand/Collapse */}
         <div className="flex items-center space-x-1.5 sm:space-x-2.5">
           {/* 1. Live Epoch Pill */}
-          <div className="flex items-center space-x-1 px-2 py-0.5 sm:px-2.5 sm:py-1 bg-[#090d16] border border-[#1e293b] rounded text-[11px] shadow-sm">
-            <span className="text-[9px] text-slate-400 font-bold uppercase">EPOCH:</span>
-            <span className="text-cyan-300 font-bold min-w-[28px] text-right">
+          <div className="flex items-center space-x-1 px-2 py-0.5 sm:px-2.5 sm:py-1 bg-[#111215] border border-[#2a2b30] rounded-[2px] text-[11px]">
+            <span className="text-[9px] text-zinc-400 font-bold uppercase">EPOCH:</span>
+            <span className="text-zinc-200 font-bold min-w-[28px] text-right">
               {epoch.toLocaleString()}
             </span>
           </div>
 
           {/* 2. Live Loss Pill with Mini Sparkline */}
-          <div className="flex items-center space-x-1.5 px-2 py-0.5 sm:px-2.5 sm:py-1 bg-[#090d16] border border-[#1e293b] rounded text-[11px] shadow-sm">
-            <span className="text-[9px] text-slate-400 font-bold uppercase">LOSS:</span>
+          <div className="flex items-center space-x-1.5 px-2 py-0.5 sm:px-2.5 sm:py-1 bg-[#111215] border border-[#2a2b30] rounded-[2px] text-[11px]">
+            <span className="text-[9px] text-zinc-400 font-bold uppercase">LOSS:</span>
             <span className="text-amber-400 font-bold min-w-[42px]">
               {currentLoss.toFixed(4)}
             </span>
@@ -110,15 +110,15 @@ export default function DiagnosticsDrawer() {
                     />
                   </>
                 ) : (
-                  <line x1="0" y1="8" x2="48" y2="8" stroke="#334155" strokeWidth="1" strokeDasharray="2,2" />
+                  <line x1="0" y1="8" x2="48" y2="8" stroke="#3a3b40" strokeWidth="1" strokeDasharray="2,2" />
                 )}
               </svg>
             </div>
           </div>
 
           {/* 3. Live Accuracy Pill */}
-          <div className="flex items-center space-x-1 px-2 py-0.5 sm:px-2.5 sm:py-1 bg-[#090d16] border border-[#1e293b] rounded text-[11px] shadow-sm">
-            <span className="text-[9px] text-slate-400 font-bold uppercase">ACC:</span>
+          <div className="flex items-center space-x-1 px-2 py-0.5 sm:px-2.5 sm:py-1 bg-[#111215] border border-[#2a2b30] rounded-[2px] text-[11px]">
+            <span className="text-[9px] text-zinc-400 font-bold uppercase">ACC:</span>
             <span className="text-emerald-400 font-bold min-w-[38px]">
               {(currentAccuracy <= 1 ? currentAccuracy * 100 : currentAccuracy).toFixed(1)}%
             </span>
@@ -128,13 +128,13 @@ export default function DiagnosticsDrawer() {
           <button
             onClick={() => setIsOpen(!isOpen)}
             title={isOpen ? 'Collapse Diagnostics Drawer' : 'Expand Diagnostics Drawer'}
-            className="flex items-center space-x-1 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded bg-[#161d2d] hover:bg-cyan-950/70 border border-[#1e293b] hover:border-cyan-500/60 text-slate-300 hover:text-cyan-300 text-[11px] font-semibold transition-all shadow-sm"
+            className="flex items-center space-x-1 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-[2px] bg-[#25272c] hover:bg-[#2e3036] border border-[#3a3b40] text-zinc-200 hover:text-white text-[11px] font-semibold transition-all"
           >
             <span className="hidden sm:inline">{isOpen ? 'COLLAPSE' : 'EXPAND'}</span>
             {isOpen ? (
               <ChevronDown className="w-3.5 h-3.5" />
             ) : (
-              <ChevronUp className="w-3.5 h-3.5 text-cyan-400 animate-bounce" />
+              <ChevronUp className="w-3.5 h-3.5 text-zinc-300" />
             )}
           </button>
         </div>
