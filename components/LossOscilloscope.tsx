@@ -40,12 +40,12 @@ export default function LossOscilloscope() {
   }
 
   return (
-    <div className="bg-[#090d16] border border-[#1e293b] rounded-md p-2.5 font-mono text-xs flex flex-col justify-between">
+    <div className="bg-[#18191c] border border-[#2a2b30] rounded-[2px] p-2.5 font-mono text-xs flex flex-col justify-between">
       {/* Header */}
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center space-x-1.5">
-          <Activity className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="text-[10px] text-slate-400 uppercase font-semibold">
+          <Activity className="w-3.5 h-3.5 text-zinc-400" />
+          <span className="text-[10px] text-zinc-400 uppercase font-semibold">
             LOSS & ACCURACY OSCILLOSCOPE
           </span>
         </div>
@@ -60,20 +60,20 @@ export default function LossOscilloscope() {
       </div>
 
       {/* SVG Canvas Plot */}
-      <div className="relative w-full h-[85px] bg-[#07090e] border border-[#1e293b]/60 rounded overflow-hidden">
+      <div className="relative w-full h-[85px] bg-[#111215] border border-[#2a2b30] rounded-[2px] overflow-hidden">
         {/* Subtle grid lines */}
         <div className="absolute inset-0 grid grid-cols-4 grid-rows-3 pointer-events-none opacity-20">
-          <div className="border-r border-b border-slate-700" />
-          <div className="border-r border-b border-slate-700" />
-          <div className="border-r border-b border-slate-700" />
-          <div className="border-b border-slate-700" />
-          <div className="border-r border-b border-slate-700" />
-          <div className="border-r border-b border-slate-700" />
-          <div className="border-r border-b border-slate-700" />
-          <div className="border-b border-slate-700" />
-          <div className="border-r border-slate-700" />
-          <div className="border-r border-slate-700" />
-          <div className="border-r border-slate-700" />
+          <div className="border-r border-b border-zinc-700" />
+          <div className="border-r border-b border-zinc-700" />
+          <div className="border-r border-b border-zinc-700" />
+          <div className="border-b border-zinc-700" />
+          <div className="border-r border-b border-zinc-700" />
+          <div className="border-r border-b border-zinc-700" />
+          <div className="border-r border-b border-zinc-700" />
+          <div className="border-b border-zinc-700" />
+          <div className="border-r border-zinc-700" />
+          <div className="border-r border-zinc-700" />
+          <div className="border-r border-zinc-700" />
           <div />
         </div>
 
@@ -99,7 +99,7 @@ export default function LossOscilloscope() {
             />
           </svg>
         ) : (
-          <div className="flex items-center justify-center h-full text-[10px] text-slate-500">
+          <div className="flex items-center justify-center h-full text-[10px] text-zinc-500">
             Buffering telemetry data...
           </div>
         )}
@@ -118,7 +118,7 @@ export default function LossOscilloscope() {
       </div>
 
       {/* Epoch Footer */}
-      <div className="flex items-center justify-between mt-1 text-[10px] text-slate-500">
+      <div className="flex items-center justify-between mt-1 text-[10px] text-zinc-500">
         <span>EPOCH: {epoch}</span>
         <span>STEPS: {step.toLocaleString()}</span>
       </div>
