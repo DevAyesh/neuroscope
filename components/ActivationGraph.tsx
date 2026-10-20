@@ -67,14 +67,14 @@ export default function ActivationGraph({
   const zeroY = mapY(0);
 
   return (
-    <div className="bg-[#07090e] border border-cyan-900/40 rounded p-2 font-mono text-[10px] select-none shadow-inner">
-      <div className="flex items-center justify-between text-slate-400 mb-1">
-        <span className="text-cyan-400 font-bold uppercase">{actInfo.name} CURVE</span>
-        <span className="text-[9px] text-slate-500">f&apos;(z)={derivative.toFixed(3)}</span>
+    <div className="bg-[#111215] border border-[#2a2b30] rounded-[2px] p-2 font-mono text-[10px] select-none shadow-none">
+      <div className="flex items-center justify-between text-zinc-400 mb-1">
+        <span className="text-zinc-200 font-bold uppercase">{actInfo.name} CURVE</span>
+        <span className="text-[9px] text-zinc-500">f′(z)={derivative.toFixed(3)}</span>
       </div>
 
       <div className="relative mx-auto flex items-center justify-center">
-        <svg width={width} height={height} className="block overflow-hidden rounded bg-[#0b0f19]">
+        <svg width={width} height={height} className="block overflow-hidden rounded-[2px] bg-[#18191c]">
           {/* Grid Zero Axes */}
           {zeroY >= padding && zeroY <= height - padding && (
             <line
@@ -102,8 +102,8 @@ export default function ActivationGraph({
           {/* Activation Curve */}
           <polyline
             fill="none"
-            stroke="#06b6d4"
-            strokeWidth="2"
+            stroke="#3b82f6"
+            strokeWidth="1.8"
             strokeLinecap="round"
             strokeLinejoin="round"
             points={polylineStr}
@@ -124,17 +124,13 @@ export default function ActivationGraph({
           )}
 
           {/* Current Operating Dot */}
-          <circle cx={curX} cy={curY} r="4.5" fill="#fef08a" stroke="#f59e0b" strokeWidth="1.5" />
-          <circle cx={curX} cy={curY} r="7" fill="none" stroke="#fef08a" strokeWidth="0.8" opacity="0.6">
-            <animate attributeName="r" values="4;8;4" dur="1.8s" repeatCount="indefinite" />
-            <animate attributeName="opacity" values="0.8;0.2;0.8" dur="1.8s" repeatCount="indefinite" />
-          </circle>
+          <circle cx={curX} cy={curY} r="3.5" fill="#fef08a" stroke="#f59e0b" strokeWidth="1.2" />
         </svg>
       </div>
 
-      <div className="flex items-center justify-between text-[9px] text-slate-400 mt-1 px-1">
+      <div className="flex items-center justify-between text-[9px] text-zinc-400 mt-1 px-1">
         <span>z: <strong className="text-amber-400">{currentZ.toFixed(2)}</strong></span>
-        <span>a: <strong className="text-cyan-300">{computedA.toFixed(2)}</strong></span>
+        <span>a: <strong className="text-zinc-200">{computedA.toFixed(2)}</strong></span>
       </div>
     </div>
   );

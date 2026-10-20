@@ -164,12 +164,12 @@ export default function DecisionBoundary() {
   if (!is2DMode) return null;
 
   return (
-    <div className="bg-[#090d16] border border-[#1e293b] rounded-md p-2.5 font-mono text-xs flex flex-col justify-between shadow-2xl select-none">
+    <div className="bg-[#18191c] border border-[#2a2b30] rounded-[2px] p-2.5 font-mono text-xs flex flex-col justify-between select-none">
       {/* Top Header & Actions */}
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center space-x-1.5">
-          <Grid className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="text-[10px] text-slate-300 uppercase font-semibold">
+          <Grid className="w-3.5 h-3.5 text-zinc-400" />
+          <span className="text-[10px] text-zinc-200 uppercase font-semibold">
             2D DRAWING PAD
           </span>
         </div>
@@ -177,14 +177,14 @@ export default function DecisionBoundary() {
           <button
             onClick={clearCustomDataset}
             title="Clear points (Draw from scratch)"
-            className="p-1 rounded bg-[#161d2d] hover:bg-red-950/60 hover:text-red-300 border border-[#1e293b] text-slate-400 transition-colors"
+            className="p-1 rounded-[2px] bg-[#1f2024] hover:bg-red-950/60 hover:text-red-300 border border-[#2a2b30] text-zinc-400 transition-colors"
           >
             <Trash2 className="w-3 h-3" />
           </button>
           <button
             onClick={resetDatasetToPreset}
             title="Reset to Spiral Dataset"
-            className="p-1 rounded bg-[#161d2d] hover:bg-cyan-950/60 hover:text-cyan-300 border border-[#1e293b] text-slate-400 transition-colors"
+            className="p-1 rounded-[2px] bg-[#1f2024] hover:bg-[#25272c] hover:text-white border border-[#2a2b30] text-zinc-400 transition-colors"
           >
             <RotateCcw className="w-3 h-3" />
           </button>
@@ -192,35 +192,35 @@ export default function DecisionBoundary() {
       </div>
 
       {/* Class Selector Pills (supports tap-to-switch on mobile/touch & visual confirmation) */}
-      <div className="flex items-center justify-between mb-1.5 bg-[#07090e] p-1 rounded border border-[#1e293b]">
+      <div className="flex items-center justify-between mb-1.5 bg-[#111215] p-1 rounded-[2px] border border-[#2a2b30]">
         <button
           onClick={() => setActiveBrush(0)}
-          className={`flex-1 py-0.5 px-1.5 rounded text-[9px] font-bold flex items-center justify-center space-x-1 transition-all ${
+          className={`flex-1 py-0.5 px-1.5 rounded-[2px] text-[9px] font-bold flex items-center justify-center space-x-1 transition-all ${
             activeBrush === 0
-              ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-500/60 shadow-sm'
-              : 'text-slate-500 hover:text-slate-300'
+              ? 'bg-[#25272c] text-blue-300 border border-[#3a3b40]'
+              : 'text-zinc-500 hover:text-zinc-300'
           }`}
-          title="Left-Click or tap to paint Class 0 (Cyan)"
+          title="Left-Click or tap to paint Class 0 (Blue)"
         >
-          <span className="w-2 h-2 rounded-full bg-[#38bdf8] inline-block" />
-          <span>CYAN (C0)</span>
+          <span className="w-2 h-2 rounded-[2px] bg-[#38bdf8] inline-block" />
+          <span>CLASS 0</span>
         </button>
         <button
           onClick={() => setActiveBrush(1)}
-          className={`flex-1 py-0.5 px-1.5 rounded text-[9px] font-bold flex items-center justify-center space-x-1 transition-all ${
+          className={`flex-1 py-0.5 px-1.5 rounded-[2px] text-[9px] font-bold flex items-center justify-center space-x-1 transition-all ${
             activeBrush === 1
-              ? 'bg-amber-950/80 text-amber-300 border border-amber-500/60 shadow-sm'
-              : 'text-slate-500 hover:text-slate-300'
+              ? 'bg-[#25272c] text-amber-300 border border-[#3a3b40]'
+              : 'text-zinc-500 hover:text-zinc-300'
           }`}
           title="Right-Click, Shift-Click or tap to paint Class 1 (Amber)"
         >
-          <span className="w-2 h-2 rounded-full bg-[#fef08a] inline-block" />
-          <span>AMBER (C1)</span>
+          <span className="w-2 h-2 rounded-[2px] bg-[#fef08a] inline-block" />
+          <span>CLASS 1</span>
         </button>
       </div>
 
       {/* Mini Canvas */}
-      <div className="relative mx-auto border border-[#1e293b] rounded overflow-hidden shadow-inner group">
+      <div className="relative mx-auto border border-[#2a2b30] rounded-[2px] overflow-hidden group">
         <canvas
           ref={canvasRef}
           width={140}
@@ -234,28 +234,28 @@ export default function DecisionBoundary() {
           onTouchEnd={handleTouchEnd}
           onContextMenu={(e) => e.preventDefault()}
           className="block w-[140px] h-[140px] cursor-crosshair touch-none"
-          title="Left-Click: Class 0 (Cyan) | Right/Shift-Click: Class 1 (Amber)"
+          title="Left-Click: Class 0 (Blue) | Right/Shift-Click: Class 1 (Amber)"
         />
         {/* Sub-label overlay on hover */}
-        <div className="absolute bottom-1 right-1 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity bg-[#07090e]/80 text-[8px] px-1 py-0.5 rounded border border-[#1e293b] text-slate-400 flex items-center space-x-1">
-          <Paintbrush className="w-2.5 h-2.5 text-cyan-400" />
+        <div className="absolute bottom-1 right-1 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity bg-[#111215]/80 text-[8px] px-1 py-0.5 rounded-[2px] border border-[#2a2b30] text-zinc-400 flex items-center space-x-1">
+          <Paintbrush className="w-2.5 h-2.5 text-zinc-400" />
           <span>Draw</span>
         </div>
       </div>
 
       {/* Class legend & Drawing instructions */}
-      <div className="flex flex-col space-y-1 mt-1.5 text-[9px] text-slate-400">
+      <div className="flex flex-col space-y-1 mt-1.5 text-[9px] text-zinc-400">
         <div className="flex items-center justify-between">
           <span className="flex items-center space-x-1">
-            <span className="w-2 h-2 rounded-full bg-[#38bdf8] inline-block border border-sky-600" />
-            <span className="text-cyan-300 font-semibold">Left: C0 (Cyan)</span>
+            <span className="w-2 h-2 rounded-[2px] bg-[#38bdf8] inline-block border border-sky-600" />
+            <span className="text-blue-300 font-semibold">Left: C0 (Blue)</span>
           </span>
           <span className="flex items-center space-x-1">
-            <span className="w-2 h-2 rounded-full bg-[#fef08a] inline-block border border-amber-600" />
+            <span className="w-2 h-2 rounded-[2px] bg-[#fef08a] inline-block border border-amber-600" />
             <span className="text-amber-300 font-semibold">Right/Shift: C1 (Amber)</span>
           </span>
         </div>
-        <div className="text-[8px] text-slate-500 text-center truncate">
+        <div className="text-[8px] text-zinc-500 text-center truncate">
           {currentDataset.length} Points • Boundary warps in real time
         </div>
       </div>

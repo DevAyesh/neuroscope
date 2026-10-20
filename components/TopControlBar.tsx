@@ -123,25 +123,25 @@ export default function TopControlBar() {
   const currentPreset = PRESET_SCENARIOS.find((p) => p.id === currentPresetId) || PRESET_SCENARIOS[0];
 
   return (
-    <header className="h-12 bg-[#0f141f] border-b border-[#1e293b] flex items-center justify-between px-2 sm:px-3 z-40 relative select-none w-full">
+    <header className="h-11 bg-[#18191c] border-b border-[#2a2b30] flex items-center justify-between px-2 sm:px-3 z-40 relative select-none w-full">
       {/* Left: Brand & Preset Selector */}
       <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
         {/* Brand */}
         <div className="flex items-center space-x-1.5 shrink-0">
-          <div className="w-5 h-5 rounded bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700 flex items-center justify-center shadow-md shadow-cyan-500/20 border border-cyan-400/30">
-            <Activity className="w-3 h-3 text-white" />
+          <div className="w-5 h-5 rounded-[2px] bg-[#2a2b30] flex items-center justify-center border border-[#3a3b40]">
+            <Activity className="w-3 h-3 text-zinc-300" />
           </div>
           <div className="flex items-center">
-            <span className="font-bold tracking-tight text-white font-mono text-xs">
-              NEURO<span className="text-cyan-400">SCOPE</span>
+            <span className="font-bold tracking-tight text-zinc-100 font-mono text-xs">
+              NEURO<span className="text-zinc-400">SCOPE</span>
             </span>
-            <span className="hidden sm:inline ml-1 px-1 py-0.2 text-[8px] bg-[#1e293b] text-cyan-300 rounded font-mono border border-cyan-800/40">
+            <span className="hidden sm:inline ml-1 px-1 py-0.2 text-[8px] bg-[#111215] text-zinc-400 rounded-[2px] font-mono border border-[#2a2b30]">
               v1.0
             </span>
           </div>
         </div>
 
-        <div className="h-3.5 w-px bg-[#1e293b] hidden md:block" />
+        <div className="h-3.5 w-px bg-[#2a2b30] hidden md:block" />
 
         {/* Preset Selector Dropdown / Pills */}
         <div className="relative" ref={dropdownRef}>
@@ -149,17 +149,17 @@ export default function TopControlBar() {
             onClick={() => setPresetDropdownOpen(!presetDropdownOpen)}
             aria-haspopup="listbox"
             aria-expanded={presetDropdownOpen}
-            className={`flex items-center space-x-1 px-1.5 py-1 rounded bg-[#161d2d] hover:bg-[#1e293b] border ${
+            className={`flex items-center space-x-1 px-1.5 py-1 rounded-[2px] bg-[#1f2024] hover:bg-[#25272c] border ${
               presetDropdownOpen
-                ? 'border-cyan-500/60 text-cyan-300 bg-[#1e293b]'
-                : 'border-[#1e293b] text-slate-200'
-            } text-xs font-mono transition-colors shadow-sm`}
+                ? 'border-[#3a3b40] text-zinc-100 bg-[#25272c]'
+                : 'border-[#2a2b30] text-zinc-200'
+            } text-xs font-mono transition-colors shadow-none`}
           >
-            <span className="text-cyan-400 font-semibold hidden xl:inline">[PRESET]</span>
+            <span className="text-zinc-400 font-semibold hidden xl:inline">[PRESET]</span>
             <span className="truncate max-w-[90px] sm:max-w-[120px] md:max-w-[140px] xl:max-w-[170px]">{currentPreset.title}</span>
             <ChevronDown
-              className={`w-3 h-3 text-slate-400 shrink-0 transition-transform duration-200 ${
-                presetDropdownOpen ? 'rotate-180 text-cyan-400' : ''
+              className={`w-3 h-3 text-zinc-400 shrink-0 transition-transform duration-200 ${
+                presetDropdownOpen ? 'rotate-180 text-zinc-200' : ''
               }`}
             />
           </button>
@@ -168,11 +168,11 @@ export default function TopControlBar() {
             <div
               role="listbox"
               aria-label="Educational Scenarios"
-              className="fixed left-2 right-2 sm:right-auto sm:left-0 top-12 sm:top-full mt-1.5 sm:w-80 max-w-[calc(100vw-1rem)] bg-[#0f141f] border border-[#1e293b] rounded-lg shadow-2xl p-1 z-50 font-mono text-xs max-h-[calc(100vh-4rem)] overflow-y-auto"
+              className="fixed left-2 right-2 sm:right-auto sm:left-0 top-12 sm:top-full mt-1.5 sm:w-80 max-w-[calc(100vw-1rem)] bg-[#18191c] border border-[#2a2b30] rounded-[2px] shadow-xl p-1 z-50 font-mono text-xs max-h-[calc(100vh-4rem)] overflow-y-auto"
             >
-              <div className="px-2 py-1 text-[10px] text-slate-500 uppercase border-b border-[#1e293b] mb-1 flex items-center justify-between">
+              <div className="px-2 py-1 text-[10px] text-zinc-500 uppercase border-b border-[#2a2b30] mb-1 flex items-center justify-between">
                 <span>Select Educational Scenario</span>
-                <span className="text-[9px] text-cyan-500/80 font-normal">ESC to close</span>
+                <span className="text-[9px] text-zinc-400 font-normal">ESC to close</span>
               </div>
               <div className="space-y-1">
                 {PRESET_SCENARIOS.map((preset) => {
@@ -186,28 +186,28 @@ export default function TopControlBar() {
                         selectPreset(preset.id);
                         setPresetDropdownOpen(false);
                       }}
-                      className={`w-full text-left p-2 rounded transition-colors flex flex-col space-y-1 ${
+                      className={`w-full text-left p-2 rounded-[2px] transition-colors flex flex-col space-y-1 ${
                         isSelected
-                          ? 'bg-cyan-950/50 border border-cyan-500/40 text-cyan-300'
-                          : 'hover:bg-[#161d2d] text-slate-300 border border-transparent'
+                          ? 'bg-[#25272c] border border-[#3a3b40] text-zinc-100'
+                          : 'hover:bg-[#1f2024] text-zinc-300 border border-transparent'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-1">
                         <div className="flex items-center gap-1.5 min-w-0">
                           {isSelected ? (
-                            <Check className="w-3 h-3 text-cyan-400 shrink-0" />
+                            <Check className="w-3 h-3 text-zinc-200 shrink-0" />
                           ) : (
                             <div className="w-3 h-3 shrink-0" />
                           )}
                           <span className="font-semibold text-xs truncate">{preset.title}</span>
                         </div>
                         <span
-                          className={`text-[9px] px-1.5 py-0.5 rounded border shrink-0 ${preset.badgeColor}`}
+                          className={`text-[9px] px-1.5 py-0.5 rounded-[2px] border shrink-0 ${preset.badgeColor}`}
                         >
                           {preset.badge}
                         </span>
                       </div>
-                      <span className="text-[10px] text-slate-400 truncate pl-[18px]">{preset.subtitle}</span>
+                      <span className="text-[10px] text-zinc-400 truncate pl-[18px]">{preset.subtitle}</span>
                     </button>
                   );
                 })}
@@ -216,26 +216,21 @@ export default function TopControlBar() {
           )}
         </div>
 
-        {/* Interactive Lesson Button for first-time and curious visitors */}
+        {/* Interactive Lesson Button */}
         <button
           onClick={() => {
             setIsFirstTime(false);
             startTour();
           }}
           title="Start 5-Step Interactive Guided Lesson"
-          className={`flex items-center space-x-1 px-1.5 py-1 rounded font-mono text-xs font-semibold border transition-all ${
+          className={`flex items-center space-x-1 px-1.5 py-1 rounded-[2px] font-mono text-xs font-semibold border transition-all ${
             isTourOpen
-              ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-md shadow-cyan-500/20'
-              : isFirstTime
-              ? 'bg-gradient-to-r from-cyan-950/90 to-blue-950/90 text-cyan-300 border-cyan-400/60 hover:border-cyan-400 shadow-md animate-pulse'
-              : 'bg-[#161d2d] hover:bg-[#1e293b] text-slate-300 hover:text-cyan-400 border-[#1e293b]'
+              ? 'bg-[#25272c] text-zinc-100 border-[#3a3b40]'
+              : 'bg-[#1f2024] hover:bg-[#25272c] text-zinc-300 hover:text-white border-[#2a2b30]'
           }`}
         >
-          <GraduationCap className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+          <GraduationCap className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
           <span className="text-[11px] hidden md:inline">LESSON</span>
-          {isFirstTime && (
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
-          )}
         </button>
 
         {/* Learning Guide & Pedagogical Outcomes Modal Trigger */}
@@ -243,9 +238,9 @@ export default function TopControlBar() {
           onClick={openLearningGuide}
           title="Open Learning Guide & Pedagogical Outcomes"
           aria-label="Open Learning Guide & Pedagogical Outcomes"
-          className="flex items-center space-x-1 px-1.5 py-1 rounded font-mono text-xs font-semibold bg-[#161d2d] hover:bg-[#1e293b] text-slate-300 hover:text-cyan-400 border border-[#1e293b] hover:border-cyan-500/40 transition-all shadow-sm"
+          className="flex items-center space-x-1 px-1.5 py-1 rounded-[2px] font-mono text-xs font-semibold bg-[#1f2024] hover:bg-[#25272c] text-zinc-300 hover:text-white border border-[#2a2b30] transition-all"
         >
-          <BookOpen className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+          <BookOpen className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
           <span className="text-[11px] hidden md:inline">GUIDE</span>
         </button>
       </div>
@@ -255,10 +250,10 @@ export default function TopControlBar() {
         <button
           onClick={togglePlay}
           title={isPlaying ? 'Pause Simulation (Space)' : 'Start Simulation (Space)'}
-          className={`flex items-center space-x-1 px-2 py-1 rounded font-mono text-xs font-bold transition-all shadow-md ${
+          className={`flex items-center space-x-1 px-2.5 py-1 rounded-[2px] font-mono text-xs font-bold transition-all ${
             isPlaying
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 shadow-amber-500/10'
-              : 'bg-emerald-600 text-white border border-emerald-400 hover:bg-emerald-500 shadow-emerald-600/30'
+              ? 'bg-[#25272c] text-amber-300 border border-amber-500/40 hover:bg-[#2e3036]'
+              : 'bg-blue-600 text-white border border-blue-500 hover:bg-blue-500'
           }`}
         >
           {isPlaying ? (
@@ -277,7 +272,7 @@ export default function TopControlBar() {
         <button
           onClick={stepOnce}
           title="Step Forward 1 Epoch"
-          className="p-1 sm:px-1.5 sm:py-1 bg-[#161d2d] hover:bg-[#1e293b] text-slate-300 hover:text-cyan-400 border border-[#1e293b] rounded font-mono text-xs flex items-center space-x-1 transition-colors"
+          className="p-1 sm:px-1.5 sm:py-1 bg-[#1f2024] hover:bg-[#25272c] text-zinc-300 hover:text-white border border-[#2a2b30] rounded-[2px] font-mono text-xs flex items-center space-x-1 transition-colors"
         >
           <SkipForward className="w-3.5 h-3.5" />
           <span className="hidden lg:inline">STEP</span>
@@ -286,7 +281,7 @@ export default function TopControlBar() {
         <button
           onClick={resetWeights}
           title="Reset Weights & Biases"
-          className="p-1 sm:px-1.5 sm:py-1 bg-[#161d2d] hover:bg-[#1e293b] text-slate-300 hover:text-red-400 border border-[#1e293b] rounded font-mono text-xs flex items-center space-x-1 transition-colors"
+          className="p-1 sm:px-1.5 sm:py-1 bg-[#1f2024] hover:bg-[#25272c] text-zinc-300 hover:text-white border border-[#2a2b30] rounded-[2px] font-mono text-xs flex items-center space-x-1 transition-colors"
         >
           <RotateCcw className="w-3.5 h-3.5" />
           <span className="hidden lg:inline">RESET</span>
@@ -295,7 +290,7 @@ export default function TopControlBar() {
         <button
           onClick={perturbWeights}
           title="Perturb Weights (Noise Injection)"
-          className="p-1 sm:px-1.5 sm:py-1 bg-[#161d2d] hover:bg-[#1e293b] text-slate-300 hover:text-amber-400 border border-[#1e293b] rounded font-mono text-xs flex items-center space-x-1 transition-colors"
+          className="p-1 sm:px-1.5 sm:py-1 bg-[#1f2024] hover:bg-[#25272c] text-zinc-300 hover:text-white border border-[#2a2b30] rounded-[2px] font-mono text-xs flex items-center space-x-1 transition-colors"
         >
           <Sparkles className="w-3.5 h-3.5" />
           <span className="hidden 2xl:inline">JITTER</span>
@@ -306,7 +301,7 @@ export default function TopControlBar() {
           <button
             onClick={reviveDyingNeurons}
             title="Revive Dead Neurons using Leaky ReLU"
-            className="flex items-center space-x-1 px-1.5 py-1 bg-red-950/60 hover:bg-red-900 border border-red-500 text-red-300 rounded font-mono text-xs animate-pulse transition-colors"
+            className="flex items-center space-x-1 px-1.5 py-1 bg-[#1f2024] hover:bg-[#25272c] border border-red-500/60 text-red-300 rounded-[2px] font-mono text-xs transition-colors"
           >
             <Flame className="w-3.5 h-3.5 text-red-400" />
             <span className="hidden sm:inline">REVIVE</span>
@@ -317,8 +312,8 @@ export default function TopControlBar() {
       {/* Right: Hyperparameters & Share */}
       <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
         {/* Learning Rate Slider (visible on wide 2xl screens, also available in sidebar) */}
-        <div className="hidden 2xl:flex items-center space-x-1 bg-[#161d2d] px-1.5 py-0.5 rounded border border-[#1e293b]">
-          <span className="text-[10px] font-mono text-slate-400">LR:</span>
+        <div className="hidden 2xl:flex items-center space-x-1 bg-[#1f2024] px-1.5 py-0.5 rounded-[2px] border border-[#2a2b30]">
+          <span className="text-[10px] font-mono text-zinc-400">LR:</span>
           <input
             type="range"
             min="0.0001"
@@ -326,35 +321,35 @@ export default function TopControlBar() {
             step="0.0005"
             value={learningRate}
             onChange={(e) => setLearningRate(parseFloat(e.target.value))}
-            className="w-14 accent-cyan-400 cursor-pointer"
+            className="w-14 cursor-pointer"
           />
-          <span className="text-[10px] font-mono text-cyan-400 font-bold w-10 text-right">
+          <span className="text-[10px] font-mono text-zinc-200 font-bold w-10 text-right">
             {learningRate.toFixed(4)}
           </span>
         </div>
 
         {/* Activation Selector */}
-        <div className="flex items-center space-x-1 bg-[#161d2d] px-1.5 py-1 rounded border border-[#1e293b] shrink-0">
-          <span className="text-[10px] font-mono text-slate-400">ACT:</span>
+        <div className="flex items-center space-x-1 bg-[#1f2024] px-1.5 py-1 rounded-[2px] border border-[#2a2b30] shrink-0">
+          <span className="text-[10px] font-mono text-zinc-400">ACT:</span>
           <select
             value={hiddenActivation}
             onChange={(e) => setHiddenActivation(e.target.value as ActivationType)}
-            className="bg-transparent text-cyan-300 font-mono text-xs outline-none cursor-pointer"
+            className="bg-transparent text-zinc-200 font-mono text-xs outline-none cursor-pointer"
           >
-            <option value="relu" className="bg-[#0f141f]">ReLU</option>
-            <option value="leaky_relu" className="bg-[#0f141f]">Leaky</option>
-            <option value="sigmoid" className="bg-[#0f141f]">Sigmoid</option>
-            <option value="tanh" className="bg-[#0f141f]">Tanh</option>
-            <option value="linear" className="bg-[#0f141f]">Linear</option>
+            <option value="relu" className="bg-[#18191c]">ReLU</option>
+            <option value="leaky_relu" className="bg-[#18191c]">Leaky</option>
+            <option value="sigmoid" className="bg-[#18191c]">Sigmoid</option>
+            <option value="tanh" className="bg-[#18191c]">Tanh</option>
+            <option value="linear" className="bg-[#18191c]">Linear</option>
           </select>
         </div>
 
         {/* Optimizer Toggle */}
-        <div className="hidden 2xl:flex items-center space-x-1 bg-[#161d2d] px-1.5 py-1 rounded border border-[#1e293b] shrink-0">
-          <span className="text-[10px] font-mono text-slate-400">OPT:</span>
+        <div className="hidden 2xl:flex items-center space-x-1 bg-[#1f2024] px-1.5 py-1 rounded-[2px] border border-[#2a2b30] shrink-0">
+          <span className="text-[10px] font-mono text-zinc-400">OPT:</span>
           <button
             onClick={() => setOptimizer(optimizer === 'momentum' ? 'sgd' : 'momentum')}
-            className="text-xs font-mono text-amber-300 hover:text-amber-200 transition-colors"
+            className="text-xs font-mono text-zinc-200 hover:text-white transition-colors"
           >
             {optimizer.toUpperCase()}
           </button>
@@ -364,16 +359,16 @@ export default function TopControlBar() {
         <button
           onClick={toggleAudio}
           title={isAudioMuted ? 'Unmute Web Audio Sonification (Harmonic Synth)' : 'Mute Web Audio Sonification'}
-          className={`flex items-center space-x-1 px-1.5 py-1 rounded font-mono text-xs border transition-all shrink-0 ${
+          className={`flex items-center space-x-1 px-1.5 py-1 rounded-[2px] font-mono text-xs border transition-all shrink-0 ${
             !isAudioMuted
-              ? 'bg-emerald-950/70 border-emerald-500/60 text-emerald-300 shadow-sm shadow-emerald-500/20'
-              : 'bg-[#161d2d] border-[#1e293b] text-slate-400 hover:text-slate-200 hover:border-[#334155]'
+              ? 'bg-[#25272c] border-[#3a3b40] text-zinc-200'
+              : 'bg-[#1f2024] border-[#2a2b30] text-zinc-400 hover:text-zinc-200'
           }`}
         >
           {!isAudioMuted ? (
-            <Volume2 className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+            <Volume2 className="w-3.5 h-3.5 text-zinc-200" />
           ) : (
-            <VolumeX className="w-3.5 h-3.5 text-slate-500" />
+            <VolumeX className="w-3.5 h-3.5 text-zinc-500" />
           )}
           <span className="hidden sm:inline">{!isAudioMuted ? 'SYNTH ON' : 'SYNTH'}</span>
         </button>
@@ -382,10 +377,10 @@ export default function TopControlBar() {
         <button
           onClick={handleShare}
           title="Share Configuration (Copy URL with state)"
-          className={`flex items-center space-x-1 px-1.5 py-1 rounded font-mono text-xs border transition-colors shrink-0 ${
+          className={`flex items-center space-x-1 px-1.5 py-1 rounded-[2px] font-mono text-xs border transition-colors shrink-0 ${
             copied
-              ? 'bg-emerald-950/60 border-emerald-500 text-emerald-300'
-              : 'bg-[#161d2d] border-[#1e293b] text-slate-300 hover:text-cyan-400 hover:border-cyan-500/40'
+              ? 'bg-[#25272c] border-emerald-500/60 text-emerald-300'
+              : 'bg-[#1f2024] border-[#2a2b30] text-zinc-300 hover:text-white'
           }`}
         >
           {copied ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
