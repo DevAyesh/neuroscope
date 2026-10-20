@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useNetworkStore } from '@/store/useNetworkStore';
-import { generateWaveData } from '@/lib/nn-engine';
+import { generateWaveData, ActivationType } from '@/lib/nn-engine';
 import { audioSynth } from '@/lib/audio-synth';
 import DecisionBoundary from './DecisionBoundary';
 import {
@@ -833,6 +833,7 @@ export default function NetworkCanvas() {
         const toCount = topology[l + 1];
         for (let f = 0; f < fromCount; f++) {
           for (let t = 0; t < toCount; t++) {
+            if (particlesRef.current.length >= 120) break;
             if (Math.random() < 0.6) {
               particlesRef.current.push({
                 fromLayer: l,
@@ -847,7 +848,9 @@ export default function NetworkCanvas() {
               });
             }
           }
+          if (particlesRef.current.length >= 120) break;
         }
+        if (particlesRef.current.length >= 120) break;
       }
     }
   }, [backpropPulseCount, engine.topology]);
@@ -888,7 +891,7 @@ export default function NetworkCanvas() {
           });
         }
       } else if (tourStep === 1) {
-        // Step 2: Bezier Synapses
+        // Step 2: Synapses (Weights)
         setSecondarySpotlightTarget(null);
         const l0Nodes = coords.filter((c) => c.layerIndex === 0);
         const l1Nodes = coords.filter((c) => c.layerIndex === 1);
@@ -903,7 +906,7 @@ export default function NetworkCanvas() {
             y: Math.max(10, toScreenY(wy1)),
             width: (wx2 - wx1) * zoom,
             height: (wy2 - wy1) * zoom,
-            title: 'Bezier Synapses (Weights)',
+            title: 'Synapses (Weights)',
           });
         }
       } else if (tourStep === 2) {
@@ -1088,11 +1091,14 @@ export default function NetworkCanvas() {
         const activations: ActivationType[] = ['relu', 'leaky_relu', 'sigmoid', 'tanh', 'linear'];
         const currentAct = engine.layers[box.layerIndex].activation;
         const nextAct = activations[(activations.indexOf(currentAct) + 1) % activations.length];
-        if (box.layerIndex > 0 && box.layerIndex < topology.length - 1) {
+        const currentTopology = topology.length > 0 ? topology : engine.topology;
+        if (box.layerIndex > 0 && box.layerIndex < currentTopology.length - 1) {
+          engine.setActivation(nextAct, box.layerIndex);
           setHiddenActivation(nextAct);
         } else {
           engine.outputActivation = nextAct;
           engine.layers[box.layerIndex].activation = nextAct;
+          useNetworkStore.setState({ outputActivation: nextAct });
           syncMetrics();
         }
         return;

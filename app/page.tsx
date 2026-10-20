@@ -26,7 +26,7 @@ function UrlSyncWrapper() {
 
 export default function Home() {
   return (
-    <main className="h-screen w-screen overflow-hidden flex flex-col bg-[#07090e] font-mono text-slate-200">
+    <main className="h-screen w-screen overflow-hidden flex flex-col bg-[#111215] font-mono text-zinc-200">
       <Suspense fallback={null}>
         <UrlSyncWrapper />
       </Suspense>

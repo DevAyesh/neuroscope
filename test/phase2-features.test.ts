@@ -212,6 +212,34 @@ import('../lib/nn-engine').then(({ PRESET_SCENARIOS }) => {
   useNetworkStore.getState().selectPreset('non_existent_preset_xyz');
   assert(useNetworkStore.getState().currentPresetId === prevId, 'Invalid preset should not corrupt currentPresetId');
   console.log('✓ Preset Scenarios & Dropdown Model Integrity passed.');
+
+  // Test 6: Default Topology Sanity [17, 26, 8] & Layer Activation Cycling
+  console.log('[Test 6] Verifying Default Topology Sanity & Layer Activation Cycling...');
+  useNetworkStore.getState().selectPreset('signal_debugger');
+  const storeState = useNetworkStore.getState();
+  assert(
+    JSON.stringify(storeState.topology) === JSON.stringify([17, 26, 8]),
+    `Default topology must be [17, 26, 8], got ${JSON.stringify(storeState.topology)}`
+  );
+  // Verify weights count = 17*26 + 26*8 = 650
+  const l0Weights = 17 * 26;
+  const l1Weights = 26 * 8;
+  assert(l0Weights + l1Weights === 650, 'Signal Wave Classifier must have exactly 650 synapse weights');
+
+  // Verify layer-specific activation cycling on engine
+  const activeEngine = storeState.engine;
+  activeEngine.setActivation('leaky_relu', 1);
+  assert(activeEngine.layers[1].activation === 'leaky_relu', 'Layer 1 activation must be leaky_relu');
+  activeEngine.setActivation('tanh', 1);
+  assert(activeEngine.layers[1].activation === 'tanh', 'Layer 1 activation must cycle to tanh');
+
+  // Verify output activation cycling
+  activeEngine.outputActivation = 'sigmoid';
+  activeEngine.layers[2].activation = 'sigmoid';
+  useNetworkStore.setState({ outputActivation: 'sigmoid' });
+  assert(useNetworkStore.getState().outputActivation === 'sigmoid', 'Store outputActivation must be sigmoid');
+
+  console.log('✓ Default Topology Sanity & Layer Activation Cycling passed.');
   console.log('=== ALL PHASE 2 TESTS PASSED SUCCESSFULLY! ===');
 });
 
