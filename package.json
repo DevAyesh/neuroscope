@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx test/nn-engine.test.ts && tsx test/phase2-features.test.ts"
+    "test": "tsx test/nn-engine.test.ts && tsx test/phase2-features.test.ts && tsx test/phase3-phase4-features.test.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",

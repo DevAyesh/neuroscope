@@ -6,14 +6,16 @@ import { Terminal, Trash2, Cpu, BarChart2 } from 'lucide-react';
 
 export default function TerminalLogs() {
   const { terminalLogs, outputProbabilities } = useNetworkStore();
-  const logEndRef = useRef<HTMLDivElement | null>(null);
+  const terminalListRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (terminalListRef.current) {
+      terminalListRef.current.scrollTop = terminalListRef.current.scrollHeight;
+    }
   }, [terminalLogs]);
 
   return (
-    <div className="bg-[#18191c] border border-[#2a2b30] rounded-[2px] p-2.5 font-mono text-xs flex flex-col h-full overflow-hidden">
+    <div className="bg-[#18191c] border border-[#2a2b30] rounded-[2px] p-2 sm:p-2.5 font-mono text-xs flex flex-col h-full min-h-0 overflow-hidden select-none">
       {/* Header */}
       <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-[#2a2b30]">
         <div className="flex items-center space-x-1.5">
@@ -25,10 +27,10 @@ export default function TerminalLogs() {
         <span className="text-[9px] text-zinc-500">STDOUT / TELEMETRY</span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-1 overflow-hidden">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 min-h-0 overflow-hidden">
         {/* Left: Live Output Class Probabilities with Gauges */}
-        <div className="flex flex-col justify-between overflow-y-auto space-y-1.5 pr-1">
-          <div className="text-[10px] text-zinc-400 flex items-center justify-between pb-1 border-b border-[#2a2b30]/50">
+        <div className="flex flex-col justify-between overflow-y-auto space-y-1.5 pr-1 min-h-0">
+          <div className="text-[10px] text-zinc-400 flex items-center justify-between pb-1 border-b border-[#2a2b30]/50 shrink-0">
             <span className="flex items-center space-x-1">
               <BarChart2 className="w-3 h-3 text-zinc-400" />
               <span>OUTPUT PROBABILITIES (ŷ)</span>
@@ -36,7 +38,7 @@ export default function TerminalLogs() {
             <span className="text-zinc-500">Softmax / Sigmoid</span>
           </div>
 
-          <div className="space-y-1 max-h-32 overflow-y-auto">
+          <div className="space-y-1 flex-1 overflow-y-auto min-h-0 pr-0.5">
             {outputProbabilities.map((prob, idx) => {
               const pct = Math.round(prob.value * 100);
               const isWinner =
@@ -71,8 +73,8 @@ export default function TerminalLogs() {
         </div>
 
         {/* Right: Retro Terminal Logs */}
-        <div className="flex flex-col overflow-hidden bg-[#111215] border border-[#2a2b30] rounded-[2px] p-2 text-[10px]">
-          <div className="flex-1 overflow-y-auto space-y-1 font-mono pr-1">
+        <div className="flex flex-col overflow-hidden bg-[#111215] border border-[#2a2b30] rounded-[2px] p-2 text-[10px] min-h-0">
+          <div ref={terminalListRef} className="flex-1 overflow-y-auto space-y-1 font-mono pr-1 min-h-0">
             {terminalLogs.map((entry) => {
               let badgeColor = 'text-blue-400';
               let badgeText = '[INFO]';
@@ -99,7 +101,6 @@ export default function TerminalLogs() {
                 </div>
               );
             })}
-            <div ref={logEndRef} />
           </div>
         </div>
       </div>
