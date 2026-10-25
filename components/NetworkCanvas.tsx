@@ -233,7 +233,8 @@ export default function NetworkCanvas() {
           // In Sensor Array mode, stream real-time continuous wave signals into input nodes
           if (currentPresetId === 'signal_debugger') {
             waveTimeRef.current += 0.04;
-            const liveSample = generateWaveData(waveTimeRef.current, 1)[0];
+            const inputDim = engine.topology[0] || 17;
+            const liveSample = generateWaveData(waveTimeRef.current, 1, inputDim)[0];
             if (liveSample) {
               engine.forward(liveSample.inputs, false);
             }
