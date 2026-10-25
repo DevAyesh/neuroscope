@@ -164,7 +164,7 @@ export default function DecisionBoundary() {
   if (!is2DMode) return null;
 
   return (
-    <div className="bg-[#18191c] border border-[#2a2b30] rounded-[2px] p-2.5 font-mono text-xs flex flex-col justify-between select-none">
+    <div className="bg-[#18191c] border border-[#2a2b30] rounded-[2px] p-2 sm:p-2.5 font-mono text-xs flex flex-col justify-between select-none h-full min-h-0 overflow-hidden">
       {/* Top Header & Actions */}
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center space-x-1.5">

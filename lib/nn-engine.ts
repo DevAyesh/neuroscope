@@ -2,7 +2,7 @@
 // Implements dynamic multi-layer perceptron with exact forward/backward math,
 // gradient tracking, He/Xavier initialization, SGD & Momentum, and interactive neuron killing.
 
-export type ActivationType = 'relu' | 'leaky_relu' | 'sigmoid' | 'tanh' | 'linear';
+export type ActivationType = 'relu' | 'leaky_relu' | 'sigmoid' | 'tanh' | 'linear' | 'softmax';
 export type OptimizerType = 'sgd' | 'momentum';
 export type LossType = 'mse' | 'cross_entropy';
 
@@ -13,6 +13,15 @@ export interface ActivationFunction {
   description: string;
   formula: string;
   derivativeFormula: string;
+}
+
+export function formatLoss(loss: number): string {
+  if (!Number.isFinite(loss)) return '0.0000';
+  if (loss === 0) return '0.0000';
+  if (Math.abs(loss) < 0.001) {
+    return loss.toExponential(3);
+  }
+  return loss.toFixed(4);
 }
 
 export const ACTIVATIONS: Record<ActivationType, ActivationFunction> = {
@@ -42,7 +51,7 @@ export const ACTIVATIONS: Record<ActivationType, ActivationFunction> = {
       const sig = a !== undefined ? a : ACTIVATIONS.sigmoid.fn(z);
       return sig * (1 - sig);
     },
-    description: 'Logistic Sigmoid. S-shaped curve mapping to (0, 1). Maximum gradient is 0.25, causing vanishing gradients in deep networks.',
+    description: 'Logistic Sigmoid (Multi-label). S-shaped curve mapping to (0, 1). Maximum gradient is 0.25, causing vanishing gradients in deep networks.',
     formula: 'σ(z) = 1 / (1 + e^(-z))',
     derivativeFormula: "σ'(z) = σ(z) * (1 - σ(z))",
   },
@@ -67,6 +76,20 @@ export const ACTIVATIONS: Record<ActivationType, ActivationFunction> = {
     description: 'Identity / Linear pass-through. Used for unconstrained regression or baseline diagnostics.',
     formula: 'f(z) = z',
     derivativeFormula: "f'(z) = 1",
+  },
+  softmax: {
+    name: 'softmax',
+    fn: (z) => {
+      const clamped = Math.max(-45, Math.min(45, z));
+      return Math.exp(clamped);
+    },
+    df: (z, a) => {
+      const s = a !== undefined ? a : 0.5;
+      return s * (1 - s);
+    },
+    description: 'Softmax. Normalizes pre-activations into a normalized multi-class probability distribution summing to 1.0. Paired with Cross-Entropy loss.',
+    formula: 'σ(z)_i = e^(z_i) / ∑ e^(z_j)',
+    derivativeFormula: "∂a_i/∂z_j = a_i(δ_ij - a_j)",
   },
 };
 
@@ -195,6 +218,9 @@ export class NeuralNetwork {
     this.topology = [...topology];
     if (hiddenActivation) this.hiddenActivation = hiddenActivation;
     if (outputActivation) this.outputActivation = outputActivation;
+    if (this.outputActivation === 'softmax') {
+      this.lossType = 'cross_entropy';
+    }
 
     this.layers = [];
     this.synapses = [];
@@ -386,8 +412,8 @@ export class NeuralNetwork {
         nextActivations[j] = actFn(sum);
       }
 
-      // If output layer with multi-class cross-entropy, apply numerically stable Softmax
-      if (currLayer.isOutput && this.lossType === 'cross_entropy' && currLayer.size > 1) {
+      // If output layer has softmax activation, apply numerically stable Softmax
+      if (currLayer.isOutput && currLayer.activation === 'softmax') {
         let maxZ = -Infinity;
         for (let j = 0; j < currLayer.size; j++) {
           if (!currLayer.neurons[j].disabled && nextActivations[j] > maxZ) {
@@ -399,7 +425,7 @@ export class NeuralNetwork {
           if (currLayer.neurons[j].disabled) {
             nextActivations[j] = 0;
           } else {
-            const expVal = Math.exp(Math.max(-50, nextActivations[j] - maxZ));
+            const expVal = Math.exp(Math.max(-50, nextActivations[j] - (Number.isFinite(maxZ) ? maxZ : 0)));
             nextActivations[j] = expVal;
             expSum += expVal;
           }
@@ -470,8 +496,8 @@ export class NeuralNetwork {
 
         neuron.z = sum;
 
-        // Output layer softmax check if cross_entropy and multiple outputs
-        if (currLayer.isOutput && this.lossType === 'cross_entropy' && currLayer.size > 1) {
+        // Output layer softmax check
+        if (currLayer.isOutput && currLayer.activation === 'softmax') {
           // Softmax will be computed as a collective vector below
           neuron.a = sum;
         } else {
@@ -486,8 +512,8 @@ export class NeuralNetwork {
         if (neuron.historyA.length > 24) neuron.historyA.shift();
       }
 
-      // If output layer with multi-class cross-entropy, apply numerically stable Softmax
-      if (currLayer.isOutput && this.lossType === 'cross_entropy' && currLayer.size > 1) {
+      // If output layer has softmax activation, apply numerically stable Softmax
+      if (currLayer.isOutput && currLayer.activation === 'softmax') {
         let maxZ = -Infinity;
         for (let j = 0; j < currLayer.size; j++) {
           if (!currLayer.neurons[j].disabled && currLayer.neurons[j].z > maxZ) {
@@ -500,7 +526,7 @@ export class NeuralNetwork {
           if (n.disabled) {
             n.a = 0;
           } else {
-            const expVal = Math.exp(Math.max(-50, n.z - maxZ));
+            const expVal = Math.exp(Math.max(-50, n.z - (Number.isFinite(maxZ) ? maxZ : 0)));
             n.a = expVal;
             expSum += expVal;
           }
@@ -529,8 +555,8 @@ export class NeuralNetwork {
     const outputLayer = this.layers[this.layers.length - 1];
 
     let loss = 0;
-    const isSoftmaxCE = this.lossType === 'cross_entropy' && outputLayer.size > 1;
-    const isBinaryCE = this.lossType === 'cross_entropy' && outputLayer.size === 1;
+    const isSoftmaxCE = outputLayer.activation === 'softmax' && this.lossType === 'cross_entropy';
+    const isBinaryCE = outputLayer.activation !== 'softmax' && this.lossType === 'cross_entropy';
 
     // Output Layer Gradients
     for (let j = 0; j < outputLayer.size; j++) {
@@ -756,15 +782,25 @@ export class NeuralNetwork {
     }
 
     const avgLoss = totalLoss / count;
-    const accuracy = (correct / count) * 100;
+    const stepAcc = (correct / count) * 100;
 
     this.metrics.step += count;
     this.metrics.epoch += 1;
     this.metrics.loss = avgLoss;
-    this.metrics.accuracy = accuracy;
+    
+    // For single-sample SGD, smooth accuracy with EMA so it reflects moving average performance
+    // rather than oscillating wildly between 0% and 100% on individual samples
+    if (count === 1) {
+      this.metrics.accuracy = this.metrics.accuracy > 0
+        ? this.metrics.accuracy * 0.94 + stepAcc * 0.06
+        : stepAcc;
+    } else {
+      this.metrics.accuracy = stepAcc;
+    }
+    
     this.updateNeuronDeadState();
 
-    return { loss: avgLoss, accuracy };
+    return { loss: avgLoss, accuracy: this.metrics.accuracy };
   }
 
   private updateNeuronDeadState(): void {
@@ -779,6 +815,71 @@ export class NeuralNetwork {
     }
     this.metrics.deadNeuronCount = dead;
     this.metrics.activeNeuronCount = active;
+  }
+
+  public evaluate(dataset: DataSample[]): { loss: number; accuracy: number } {
+    if (!dataset || dataset.length === 0) return { loss: 0, accuracy: 0 };
+    let totalLoss = 0;
+    let correct = 0;
+    const outputLayer = this.layers[this.layers.length - 1];
+    const isSoftmax = outputLayer?.activation === 'softmax';
+    const isCE = this.lossType === 'cross_entropy';
+
+    for (let i = 0; i < dataset.length; i++) {
+      const sample = dataset[i];
+      const preds = this.predict(sample.inputs);
+
+      // Loss calculation
+      if (isSoftmax && isCE) {
+        for (let j = 0; j < preds.length; j++) {
+          const pred = preds[j];
+          const target = sample.targets[j] !== undefined ? sample.targets[j] : 0;
+          const safePred = Math.max(1e-12, Math.min(1.0, pred));
+          totalLoss += -(target * Math.log(safePred));
+        }
+      } else if (isCE) {
+        for (let j = 0; j < preds.length; j++) {
+          const pred = preds[j];
+          const target = sample.targets[j] !== undefined ? sample.targets[j] : 0;
+          const safePred = Math.max(1e-12, Math.min(1.0 - 1e-12, pred));
+          totalLoss += -(target * Math.log(safePred) + (1 - target) * Math.log(1 - safePred));
+        }
+      } else {
+        for (let j = 0; j < preds.length; j++) {
+          const pred = preds[j];
+          const target = sample.targets[j] !== undefined ? sample.targets[j] : 0;
+          const diff = pred - target;
+          totalLoss += 0.5 * diff * diff;
+        }
+      }
+
+      // Accuracy evaluation
+      if (sample.targets.length === 1) {
+        const predBinary = (preds[0] ?? 0) >= 0.5 ? 1 : 0;
+        const targetBinary = (sample.targets[0] ?? 0) >= 0.5 ? 1 : 0;
+        if (predBinary === targetBinary) correct++;
+      } else {
+        let maxPredIdx = 0;
+        let maxPredVal = -Infinity;
+        let maxTargetIdx = 0;
+        let maxTargetVal = -Infinity;
+        for (let k = 0; k < preds.length; k++) {
+          if (preds[k] > maxPredVal) {
+            maxPredVal = preds[k];
+            maxPredIdx = k;
+          }
+          if (sample.targets[k] > maxTargetVal) {
+            maxTargetVal = sample.targets[k];
+            maxTargetIdx = k;
+          }
+        }
+        if (maxPredIdx === maxTargetIdx) correct++;
+      }
+    }
+
+    const avgLoss = totalLoss / dataset.length;
+    const accuracy = (correct / dataset.length) * 100;
+    return { loss: avgLoss, accuracy };
   }
 
   // Educational Step-by-Step Math Inspector Trace
@@ -926,15 +1027,15 @@ export const PRESET_SCENARIOS: PresetScenario[] = [
     description: '17 live oscillating harmonic input signals -> 26 ReLU hidden neurons -> 8 Output waveform classes. Visualizes live oscilloscope streams and high-throughput synapse routing.',
     topology: [17, 26, 8],
     hiddenActivation: 'relu',
-    outputActivation: 'sigmoid',
+    outputActivation: 'softmax',
     learningRate: 0.05,
     optimizer: 'momentum',
     lossType: 'cross_entropy',
     datasetName: 'wave_17',
-    badge: 'C++ ImGui Mode',
-    badgeColor: 'border-[#2a2b30] text-[#8e9299] bg-[#18191c]',
+    badge: 'ImGui-style Theme',
+    badgeColor: 'border-[#2a2b30] text-[#cbd5e1] bg-[#18191c]',
     tips: [
-      'Observe the 17 green waveform oscilloscopes on the left edge.',
+      'Observe the green waveform oscilloscopes on the left edge.',
       'Click any neuron to inject dropout and watch weights reroute in real time.',
       'Hover over dense synapse bundles to isolate critical signal conduits.',
     ],
@@ -986,7 +1087,7 @@ export const PRESET_SCENARIOS: PresetScenario[] = [
     description: 'Classifies non-linear 2D coordinates with a live decision boundary heatmap in the bottom-right corner, demonstrating how hidden layers warp space to separate intertwined classes.',
     topology: [2, 12, 12, 2],
     hiddenActivation: 'tanh',
-    outputActivation: 'sigmoid',
+    outputActivation: 'softmax',
     learningRate: 0.08,
     optimizer: 'momentum',
     lossType: 'cross_entropy',
@@ -1006,10 +1107,10 @@ export const PRESET_SCENARIOS: PresetScenario[] = [
     description: 'Slows down execution to an illuminated 5-phase cycle: (1) Input vector, (2) Weighted sum ∑w·x+b, (3) Activation function σ(z), (4) Loss calculation, and (5) Backprop gradient update.',
     topology: [3, 4, 3, 2],
     hiddenActivation: 'relu',
-    outputActivation: 'sigmoid',
+    outputActivation: 'softmax',
     learningRate: 0.1,
     optimizer: 'sgd',
-    lossType: 'mse',
+    lossType: 'cross_entropy',
     datasetName: 'step_math',
     badge: 'Pedagogical X-Ray',
     badgeColor: 'border-[#2a2b30] text-[#8e9299] bg-[#18191c]',
@@ -1020,6 +1121,52 @@ export const PRESET_SCENARIOS: PresetScenario[] = [
     ],
   },
 ];
+
+export function formatScenarioBriefing(
+  preset: PresetScenario,
+  topology: number[],
+  layers?: LayerState[]
+): string {
+  const inCount = topology[0] ?? 1;
+  const outCount = topology[topology.length - 1] ?? 1;
+  const hiddenCountStr = topology
+    .slice(1, -1)
+    .map((count, idx) => {
+      const act = layers?.[idx + 1]?.activation ?? preset.hiddenActivation;
+      const actLabel = act === 'leaky_relu' ? 'Leaky ReLU' : act === 'sigmoid' ? 'Sigmoid' : act.toUpperCase();
+      return `${count} ${actLabel}`;
+    })
+    .join(' -> ');
+
+  const outAct = layers?.[topology.length - 1]?.activation ?? preset.outputActivation;
+  const outActLabel = outAct === 'softmax' ? 'Softmax' : outAct === 'sigmoid' ? 'Sigmoid (Multi-label)' : outAct.toUpperCase();
+
+  switch (preset.id) {
+    case 'signal_debugger':
+      return `${inCount} live oscillating harmonic input signals -> ${hiddenCountStr || 'Direct'} hidden neurons -> ${outCount} Output waveform classes (${outActLabel}). Visualizes live oscilloscope streams and high-throughput synapse routing.`;
+    case 'dying_relu':
+      return `Pre-configured with ${inCount} inputs, ${hiddenCountStr} hidden neurons, and ${outCount} output (${outActLabel}) with aggressive learning rate (${preset.learningRate}). Large negative gradient updates push weights into negative space where f'(z) = 0 permanently, turning neurons dark ("dead").`;
+    case 'vanishing_grad':
+      return `A deep ${topology.length}-layer architecture (${inCount} inputs -> ${hiddenCountStr} -> ${outCount} output) using ${layers?.[1]?.activation ? ACTIVATIONS[layers[1].activation].name.toUpperCase() : 'Sigmoid'} activation. Because derivative ≤ 0.25, multiplying backwards causes gradients near layer 1 to decay exponentially to 0.0000.`;
+    case '2d_classifier':
+      return `Classifies non-linear 2D coordinates (${inCount} inputs -> ${hiddenCountStr} -> ${outCount} classes [${outActLabel}]) with a live decision boundary heatmap, demonstrating how hidden layers warp space to separate intertwined classes.`;
+    case 'step_math_xray':
+      return `Step-by-step cycle on ${inCount} inputs -> ${hiddenCountStr} -> ${outCount} outputs (${outActLabel}). Slows down execution to an illuminated 5-phase cycle: (1) Input vector, (2) Weighted sum ∑w·x+b, (3) Activation function σ(z), (4) Loss calculation, and (5) Backprop gradient update.`;
+    default:
+      return `${inCount} inputs -> ${hiddenCountStr} -> ${outCount} outputs (${outActLabel}). ${preset.description}`;
+  }
+}
+
+export function splitTrainVal(dataset: DataSample[], trainRatio: number = 0.8): { train: DataSample[]; val: DataSample[] } {
+  if (!dataset || dataset.length <= 4) {
+    return { train: dataset ? [...dataset] : [], val: dataset ? [...dataset] : [] };
+  }
+  const splitIdx = Math.max(1, Math.floor(dataset.length * trainRatio));
+  return {
+    train: dataset.slice(0, splitIdx),
+    val: dataset.slice(splitIdx),
+  };
+}
 
 // Generates 17 continuous oscillating wave signals for Sensor Array Mode
 export function generateWaveData(t: number, count: number = 64): DataSample[] {

@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNetworkStore } from '@/store/useNetworkStore';
-import { PRESET_SCENARIOS, ActivationType, OptimizerType } from '@/lib/nn-engine';
+import { PRESET_SCENARIOS, ActivationType, OptimizerType, formatScenarioBriefing } from '@/lib/nn-engine';
 import {
   Layers,
   Sliders,
@@ -14,14 +14,17 @@ import {
   Info,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   TrendingDown,
   Gauge,
   Terminal,
   ShieldAlert,
+  RotateCcw,
 } from 'lucide-react';
 
 export default function ControlSidebar() {
   const {
+    engine,
     topology,
     totalParameters,
     hiddenActivation,
@@ -33,7 +36,12 @@ export default function ControlSidebar() {
     showBackpropGradients,
     showOscilloscopes,
     showParticles,
+    minWeightThreshold,
+    setMinWeightThreshold,
     currentPresetId,
+    autoPauseOnConvergence,
+    setAutoPauseOnConvergence,
+    regenerateData,
     addHiddenLayer,
     removeHiddenLayer,
     setLayerNeuronCount,
@@ -48,14 +56,41 @@ export default function ControlSidebar() {
   } = useNetworkStore();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [topologyOpen, setTopologyOpen] = useState(true);
+  const [kernelOpen, setKernelOpen] = useState(true);
+  const [visualizerOpen, setVisualizerOpen] = useState(true);
+  const [briefingOpen, setBriefingOpen] = useState(true);
   const currentPreset = PRESET_SCENARIOS.find((p) => p.id === currentPresetId) || PRESET_SCENARIOS[0];
 
+  // Auto-collapse on narrow screens (tablets & mobile) by default (Phase 3 Item 14)
+  useEffect(() => {
+    const checkWidth = () => {
+      if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+        setIsCollapsed(true);
+      }
+    };
+    checkWidth();
+  }, []);
+
   return (
-    <aside
-      className={`h-[calc(100vh-2.75rem)] bg-[#18191c] border-r border-[#2a2b30] flex flex-col transition-all duration-300 z-30 font-mono select-none ${
-        isCollapsed ? 'w-10' : 'w-72 lg:w-80'
-      }`}
-    >
+    <>
+      {/* Mobile Floating Toggle Button when collapsed on narrow screens */}
+      {isCollapsed && (
+        <button
+          onClick={() => setIsCollapsed(false)}
+          className="fixed left-2 top-12 z-40 md:hidden p-1.5 bg-[#1f2024]/95 hover:bg-[#25272c] border border-[#3a3b40] text-zinc-200 rounded-[2px] shadow-lg flex items-center space-x-1 text-xs"
+          title="Open Debugger Controls"
+        >
+          <Sliders className="w-3.5 h-3.5 text-zinc-400" />
+          <span className="text-[10px] font-bold">CONTROLS</span>
+        </button>
+      )}
+
+      <aside
+        className={`h-full bg-[#18191c] border-r border-[#2a2b30] flex flex-col transition-all duration-300 z-30 font-mono select-none ${
+          isCollapsed ? 'w-0 md:w-10 overflow-hidden' : 'w-72 lg:w-80'
+        }`}
+      >
       {/* Collapse/Expand Toggle Header */}
       <div className="h-9 px-3 bg-[#1f2024] border-b border-[#2a2b30] flex items-center justify-between text-xs text-zinc-400">
         {!isCollapsed && (
@@ -81,10 +116,14 @@ export default function ControlSidebar() {
           <div className="space-y-2.5 bg-[#18191c] p-3 rounded-[2px] border border-[#2a2b30]">
             {/* Header with Title and Layer Add/Remove Buttons */}
             <div className="flex items-center justify-between pb-1.5 border-b border-[#2a2b30]">
-              <span className="text-[11px] font-bold text-zinc-200 uppercase tracking-wider flex items-center space-x-1.5">
+              <button
+                onClick={() => setTopologyOpen(!topologyOpen)}
+                className="text-[11px] font-bold text-zinc-200 uppercase tracking-wider flex items-center space-x-1.5 hover:text-white transition-colors"
+              >
                 <Sliders className="w-3.5 h-3.5 text-zinc-400" />
                 <span>TOPOLOGY BUILDER</span>
-              </span>
+                {topologyOpen ? <ChevronDown className="w-3 h-3 text-zinc-400" /> : <ChevronRight className="w-3 h-3 text-zinc-400" />}
+              </button>
 
               <div className="flex items-center space-x-1">
                 <button
@@ -108,7 +147,9 @@ export default function ControlSidebar() {
               </div>
             </div>
 
-            {/* Visual Topology Chain Pills: e.g. [17] -> [26] -> [16] -> [8] */}
+            {topologyOpen && (
+              <>
+                {/* Visual Topology Chain Pills: e.g. [17] -> [26] -> [16] -> [8] */}
             <div className="bg-[#111215] p-2 rounded-[2px] border border-[#2a2b30] flex items-center flex-wrap gap-1.5 justify-center select-none">
               {topology.map((count, idx) => {
                 const isInput = idx === 0;
@@ -203,171 +244,252 @@ export default function ControlSidebar() {
               })}
             </div>
 
-            {/* Architecture Metadata Footer */}
-            <div className="flex items-center justify-between text-[10px] text-zinc-500 pt-0.5 px-1 font-mono">
-              <span>{topology.length} LAYERS</span>
-              <span className="text-zinc-600">•</span>
-              <span>{topology.reduce((a, b) => a + b, 0)} NODES</span>
-              <span className="text-zinc-600">•</span>
-              <span className="text-zinc-300 font-bold">{totalParameters.toLocaleString()} PARAMS</span>
-            </div>
-          </div>
+              {/* Architecture Metadata Footer */}
+              <div className="flex items-center justify-between text-[10px] text-zinc-500 pt-0.5 px-1 font-mono">
+                <span>{topology.length} LAYERS</span>
+                <span className="text-zinc-600">•</span>
+                <span>{topology.reduce((a, b) => a + b, 0)} NODES</span>
+                <span className="text-zinc-600">•</span>
+                <span className="text-zinc-300 font-bold">{totalParameters.toLocaleString()} PARAMS</span>
+              </div>
+            </>
+          )}
+        </div>
 
           {/* 2. Simulation Speed & Engine Settings */}
-          <div className="space-y-2">
-            <span className="text-[10px] text-zinc-400 uppercase tracking-wider flex items-center space-x-1.5">
-              <Zap className="w-3 h-3 text-zinc-400" />
-              <span>EXECUTION KERNEL</span>
-            </span>
+          <div className="bg-[#18191c] p-2.5 rounded-[2px] border border-[#2a2b30] space-y-2">
+            <button
+              onClick={() => setKernelOpen(!kernelOpen)}
+              className="w-full flex items-center justify-between text-[11px] font-bold text-zinc-200 uppercase tracking-wider hover:text-white transition-colors"
+            >
+              <span className="flex items-center space-x-1.5">
+                <Zap className="w-3.5 h-3.5 text-zinc-400" />
+                <span>EXECUTION KERNEL</span>
+              </span>
+              {kernelOpen ? <ChevronDown className="w-3 h-3 text-zinc-400" /> : <ChevronRight className="w-3 h-3 text-zinc-400" />}
+            </button>
 
-            <div className="space-y-2.5 bg-[#111215] p-2.5 rounded-[2px] border border-[#2a2b30]">
-              {/* Training Speed */}
-              <div>
-                <div className="flex justify-between text-[11px] mb-1">
-                  <span className="text-zinc-400">SIMULATION VELOCITY:</span>
-                  <span className="text-zinc-200 font-bold">{trainingSpeed}x</span>
+            {kernelOpen && (
+              <div className="space-y-2.5 bg-[#111215] p-2.5 rounded-[2px] border border-[#2a2b30]">
+                {/* Training Speed */}
+                <div>
+                  <div className="flex justify-between text-[11px] mb-1">
+                    <span className="text-zinc-400">SIMULATION VELOCITY:</span>
+                    <span className="text-zinc-200 font-bold">{trainingSpeed}x</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1">
+                    {[1, 2, 5, 10].map((speed) => (
+                      <button
+                        key={speed}
+                        onClick={() => setTrainingSpeed(speed)}
+                        className={`py-1 rounded-[2px] text-[10px] border transition-colors ${
+                          trainingSpeed === speed
+                            ? 'bg-[#25272c] border-[#3a3b40] text-zinc-100 font-bold'
+                            : 'bg-[#1f2024] border-[#2a2b30] text-zinc-400 hover:bg-[#25272c]'
+                        }`}
+                      >
+                        {speed}x
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="grid grid-cols-4 gap-1">
-                  {[1, 2, 5, 10].map((speed) => (
-                    <button
-                      key={speed}
-                      onClick={() => setTrainingSpeed(speed)}
-                      className={`py-1 rounded-[2px] text-[10px] border transition-colors ${
-                        trainingSpeed === speed
-                          ? 'bg-[#25272c] border-[#3a3b40] text-zinc-100'
-                          : 'bg-[#1f2024] border-[#2a2b30] text-zinc-400 hover:bg-[#25272c]'
-                      }`}
-                    >
-                      {speed}x
-                    </button>
-                  ))}
-                </div>
-              </div>
 
-              {/* Dropout Rate */}
-              <div>
-                <div className="flex justify-between text-[11px] mb-1">
-                  <span className="text-zinc-400">RANDOM DROPOUT:</span>
-                  <span className="text-amber-300 font-bold">
-                    {(dropoutRate * 100).toFixed(0)}%
-                  </span>
+                {/* Hidden Activation Dropdown (Phase 4 Item 16) */}
+                <div className="flex items-center justify-between text-[11px] pt-1">
+                  <span className="text-zinc-400">ACTIVATION:</span>
+                  <select
+                    value={hiddenActivation}
+                    onChange={(e) => setHiddenActivation(e.target.value as ActivationType)}
+                    className="bg-[#1f2024] border border-[#2a2b30] text-zinc-200 px-2 py-0.5 rounded-[2px] text-[10px] outline-none cursor-pointer hover:border-zinc-500 font-mono"
+                  >
+                    <option value="relu" className="bg-[#18191c]">ReLU</option>
+                    <option value="leaky_relu" className="bg-[#18191c]">Leaky ReLU</option>
+                    <option value="sigmoid" className="bg-[#18191c]">Sigmoid</option>
+                    <option value="tanh" className="bg-[#18191c]">Tanh</option>
+                    <option value="linear" className="bg-[#18191c]">Linear</option>
+                  </select>
                 </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="0.5"
-                  step="0.05"
-                  value={dropoutRate}
-                  onChange={(e) => setDropoutRate(parseFloat(e.target.value))}
-                  className="w-full h-1 cursor-pointer"
-                />
-              </div>
 
-              {/* Optimizer Type */}
-              <div className="flex items-center justify-between text-[11px] pt-1">
-                <span className="text-zinc-400">OPTIMIZER:</span>
-                <div className="flex space-x-1">
-                  {(['momentum', 'sgd'] as OptimizerType[]).map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => setOptimizer(opt)}
-                      className={`px-2 py-0.5 rounded-[2px] text-[10px] uppercase border transition-colors ${
-                        optimizer === opt
-                          ? 'bg-[#25272c] border-[#3a3b40] text-zinc-100'
-                          : 'bg-[#1f2024] border-[#2a2b30] text-zinc-400 hover:bg-[#25272c]'
-                      }`}
-                    >
-                      {opt}
-                    </button>
-                  ))}
+                {/* Dropout Rate */}
+                <div>
+                  <div className="flex justify-between text-[11px] mb-1">
+                    <span className="text-zinc-400">RANDOM DROPOUT:</span>
+                    <span className="text-amber-300 font-bold">
+                      {(dropoutRate * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="0.5"
+                    step="0.05"
+                    value={dropoutRate}
+                    onChange={(e) => setDropoutRate(parseFloat(e.target.value))}
+                    className="w-full h-1 cursor-pointer accent-amber-500"
+                  />
                 </div>
+
+                {/* Optimizer Type */}
+                <div className="flex items-center justify-between text-[11px] pt-1">
+                  <span className="text-zinc-400">OPTIMIZER:</span>
+                  <div className="flex space-x-1">
+                    {(['momentum', 'sgd'] as OptimizerType[]).map((opt) => (
+                      <button
+                        key={opt}
+                        onClick={() => setOptimizer(opt)}
+                        className={`px-2 py-0.5 rounded-[2px] text-[10px] uppercase border transition-colors ${
+                          optimizer === opt
+                            ? 'bg-[#25272c] border-[#3a3b40] text-zinc-100 font-bold'
+                            : 'bg-[#1f2024] border-[#2a2b30] text-zinc-400 hover:bg-[#25272c]'
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Auto-pause on Convergence Toggle */}
+                <label className="flex items-center justify-between cursor-pointer pt-1.5 border-t border-[#2a2b30]/60">
+                  <span className="text-zinc-300 text-[10px]">AUTO-PAUSE CONVERGENCE:</span>
+                  <input
+                    type="checkbox"
+                    checked={autoPauseOnConvergence}
+                    onChange={(e) => setAutoPauseOnConvergence(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-blue-500 rounded-[2px] bg-[#1f2024] cursor-pointer"
+                  />
+                </label>
+
+                {/* Regenerate Data Button */}
+                <button
+                  onClick={regenerateData}
+                  title="Regenerate dataset with fresh samples (preserves weights & architecture)"
+                  className="w-full mt-1 py-1.5 px-2 bg-[#1f2024] hover:bg-[#25272c] border border-[#2a2b30] hover:border-zinc-500 text-zinc-300 hover:text-white rounded-[2px] text-[10px] font-semibold flex items-center justify-center space-x-1.5 transition-colors"
+                >
+                  <RotateCcw className="w-3 h-3 text-zinc-400" />
+                  <span>REGENERATE DATA</span>
+                </button>
               </div>
-            </div>
+            )}
           </div>
 
           {/* 3. Visual & Particle Toggles */}
-          <div className="space-y-2">
-            <span className="text-[10px] text-zinc-400 uppercase tracking-wider flex items-center space-x-1.5">
-              <Activity className="w-3 h-3 text-zinc-400" />
-              <span>VISUALIZER LAYERS</span>
-            </span>
+          <div className="bg-[#18191c] p-2.5 rounded-[2px] border border-[#2a2b30] space-y-2">
+            <button
+              onClick={() => setVisualizerOpen(!visualizerOpen)}
+              className="w-full flex items-center justify-between text-[11px] font-bold text-zinc-200 uppercase tracking-wider hover:text-white transition-colors"
+            >
+              <span className="flex items-center space-x-1.5">
+                <Activity className="w-3.5 h-3.5 text-zinc-400" />
+                <span>VISUALIZER LAYERS</span>
+              </span>
+              {visualizerOpen ? <ChevronDown className="w-3 h-3 text-zinc-400" /> : <ChevronRight className="w-3 h-3 text-zinc-400" />}
+            </button>
 
-            <div className="space-y-2 bg-[#111215] p-2.5 rounded-[2px] border border-[#2a2b30] text-[11px]">
-              {/* Backprop Gradients */}
-              <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-zinc-300">Show Backprop Gradients</span>
-                <input
-                  type="checkbox"
-                  checked={showBackpropGradients}
-                  onChange={(e) => setShowBackpropGradients(e.target.checked)}
-                  className="w-3.5 h-3.5 accent-blue-500 rounded-[2px] bg-[#1f2024] cursor-pointer"
-                />
-              </label>
+            {visualizerOpen && (
+              <div className="space-y-2 bg-[#111215] p-2.5 rounded-[2px] border border-[#2a2b30] text-[11px]">
+                {/* Backprop Gradients */}
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-zinc-300">Show Backprop Gradients</span>
+                  <input
+                    type="checkbox"
+                    checked={showBackpropGradients}
+                    onChange={(e) => setShowBackpropGradients(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-blue-500 rounded-[2px] bg-[#1f2024] cursor-pointer"
+                  />
+                </label>
 
-              {/* Input Oscilloscopes */}
-              <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-zinc-300">Live Input Oscilloscopes</span>
-                <input
-                  type="checkbox"
-                  checked={showOscilloscopes}
-                  onChange={(e) => setShowOscilloscopes(e.target.checked)}
-                  className="w-3.5 h-3.5 accent-blue-500 rounded-[2px] bg-[#1f2024] cursor-pointer"
-                />
-              </label>
+                {/* Input Oscilloscopes */}
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-zinc-300">Live Input Oscilloscopes</span>
+                  <input
+                    type="checkbox"
+                    checked={showOscilloscopes}
+                    onChange={(e) => setShowOscilloscopes(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-blue-500 rounded-[2px] bg-[#1f2024] cursor-pointer"
+                  />
+                </label>
 
-              {/* Signal Particles */}
-              <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-zinc-300">Signal Particles</span>
-                <input
-                  type="checkbox"
-                  checked={showParticles}
-                  onChange={(e) => setShowParticles(e.target.checked)}
-                  className="w-3.5 h-3.5 accent-blue-500 rounded-[2px] bg-[#1f2024] cursor-pointer"
-                />
-              </label>
-            </div>
+                {/* Signal Particles */}
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-zinc-200">Signal Particles</span>
+                  <input
+                    type="checkbox"
+                    checked={showParticles}
+                    onChange={(e) => setShowParticles(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-blue-500 rounded-[2px] bg-[#1f2024] cursor-pointer"
+                  />
+                </label>
+
+                {/* Hide weights below X */}
+                <div className="pt-2 border-t border-[#2a2b30]/80 space-y-1.5">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-zinc-300">Hide weights below:</span>
+                    <span className="text-amber-300 font-bold font-mono">|w| &lt; {minWeightThreshold.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.00"
+                    max="0.50"
+                    step="0.01"
+                    value={minWeightThreshold}
+                    onChange={(e) => setMinWeightThreshold(parseFloat(e.target.value))}
+                    className="w-full h-1 cursor-pointer accent-amber-500"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 4. Educational Scenario Briefing & Tips */}
-          <div className="space-y-2">
-            <span className="text-[10px] text-zinc-400 uppercase tracking-wider flex items-center space-x-1.5">
-              <Info className="w-3.5 h-3.5 text-zinc-400" />
-              <span>SCENARIO BRIEFING</span>
-            </span>
+          <div className="bg-[#18191c] p-2.5 rounded-[2px] border border-[#2a2b30] space-y-2">
+            <button
+              onClick={() => setBriefingOpen(!briefingOpen)}
+              className="w-full flex items-center justify-between text-[11px] font-bold text-zinc-200 uppercase tracking-wider hover:text-white transition-colors"
+            >
+              <span className="flex items-center space-x-1.5">
+                <Info className="w-3.5 h-3.5 text-zinc-400" />
+                <span>SCENARIO BRIEFING</span>
+              </span>
+              {briefingOpen ? <ChevronDown className="w-3 h-3 text-zinc-400" /> : <ChevronRight className="w-3 h-3 text-zinc-400" />}
+            </button>
 
-            <div className="p-2.5 bg-[#111215] rounded-[2px] border border-[#2a2b30] space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-zinc-200 text-[11px]">
-                  {currentPreset.title}
-                </span>
-                <span
-                  className={`text-[9px] px-1.5 py-0.5 rounded-[2px] border ${currentPreset.badgeColor}`}
-                >
-                  {currentPreset.badge}
-                </span>
+            {briefingOpen && (
+              <div className="p-2.5 bg-[#111215] rounded-[2px] border border-[#2a2b30] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-zinc-200 text-[11px]">
+                    {currentPreset.title}
+                  </span>
+                  <span
+                    className={`text-[9px] px-1.5 py-0.5 rounded-[2px] border ${currentPreset.badgeColor}`}
+                  >
+                    {currentPreset.badge}
+                  </span>
+                </div>
+
+                <p className="text-[10px] text-zinc-300 leading-relaxed">
+                  {formatScenarioBriefing(currentPreset, topology, engine.layers)}
+                </p>
+
+                <div className="pt-2 border-t border-[#2a2b30] space-y-1">
+                  <span className="text-[9px] text-zinc-400 uppercase font-semibold">
+                    FIELD EXPERIMENTS:
+                  </span>
+                  <ul className="text-[10px] text-zinc-300 space-y-1 pl-2">
+                    {currentPreset.tips.map((tip, idx) => (
+                      <li key={idx} className="flex items-start space-x-1">
+                        <span className="text-zinc-400 font-bold">•</span>
+                        <span>{tip}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-
-              <p className="text-[10px] text-zinc-400 leading-relaxed">
-                {currentPreset.description}
-              </p>
-
-              <div className="pt-2 border-t border-[#2a2b30] space-y-1">
-                <span className="text-[9px] text-zinc-500 uppercase font-semibold">
-                  FIELD EXPERIMENTS:
-                </span>
-                <ul className="text-[10px] text-zinc-300 space-y-1 pl-2">
-                  {currentPreset.tips.map((tip, idx) => (
-                    <li key={idx} className="flex items-start space-x-1">
-                      <span className="text-zinc-400 font-bold">•</span>
-                      <span>{tip}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       )}
     </aside>
+    </>
   );
 }

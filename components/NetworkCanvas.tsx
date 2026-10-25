@@ -16,6 +16,10 @@ import {
   Eye,
   EyeOff,
   Cpu,
+  Info,
+  ChevronUp,
+  ChevronDown,
+  X,
 } from 'lucide-react';
 
 interface Particle {
@@ -50,7 +54,9 @@ export default function NetworkCanvas() {
     showBackpropGradients,
     showOscilloscopes,
     showParticles,
+    minWeightThreshold,
     currentDataset,
+    trainDataset,
     selectedNeuron,
     hoveredNeuron,
     stepMathIndex,
@@ -91,6 +97,7 @@ export default function NetworkCanvas() {
 
   const [fps, setFps] = useState(60);
   const [zoomDisplay, setZoomDisplay] = useState(100);
+  const [legendOpen, setLegendOpen] = useState(false);
   const nodeCoordsRef = useRef<NodeCoord[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const lastSyncTimeRef = useRef(0);
@@ -232,8 +239,9 @@ export default function NetworkCanvas() {
             }
           }
 
+          const datasetToUse = trainDataset && trainDataset.length > 0 ? trainDataset : currentDataset;
           for (let s = 0; s < trainingSpeed; s++) {
-            engine.trainStep(currentDataset, 1);
+            engine.trainStep(datasetToUse, 1);
           }
           audioSynth.triggerTrainingPulse(isPlaying, engine.metrics.gradNorm);
         }
@@ -340,7 +348,8 @@ export default function NetworkCanvas() {
         const layer = engine.layers[l];
         if (!layer) continue;
         const x = l * layerSpacing + 120;
-        const headerWidth = 115;
+        const isOutputLayer = l === currentTopology.length - 1;
+        const headerWidth = isOutputLayer ? 170 : 120;
         const leftX = x - 35;
 
         // Subtle top border line
@@ -356,39 +365,41 @@ export default function NetworkCanvas() {
         ctx.textBaseline = 'top';
 
         // Line 1: Layer Title
-        ctx.font = 'bold 10px "JetBrains Mono", monospace';
-        ctx.fillStyle = '#e4e4e7';
-        const title = l === 0 ? 'INPUT' : l === currentTopology.length - 1 ? 'OUTPUT' : `HL ${l}`;
+        ctx.font = 'bold 11px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#f4f4f5';
+        const title = l === 0 ? 'INPUT' : isOutputLayer ? 'OUTPUT' : `HL ${l}`;
         ctx.fillText(title, leftX, headerY + 6);
 
         // Line 2: Neurons count
-        ctx.font = '9px "JetBrains Mono", monospace';
-        ctx.fillStyle = '#8e9299';
-        ctx.fillText(`Neurons: ${layer.size}`, leftX, headerY + 18);
+        ctx.font = '11px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillText(`Neurons: ${layer.size}`, leftX, headerY + 19);
 
         // Line 3: Activation (click)
         if (l > 0) {
-          const actDisplay =
-            layer.activation === 'relu'
-              ? 'ReLU'
-              : layer.activation === 'leaky_relu'
-              ? 'Leaky ReLU'
-              : layer.activation === 'sigmoid'
-              ? 'Sigmoid'
-              : layer.activation === 'tanh'
-              ? 'Tanh'
-              : 'Linear';
+          let actDisplay = 'Linear';
+          if (layer.activation === 'softmax') {
+            actDisplay = 'Softmax';
+          } else if (layer.activation === 'sigmoid') {
+            actDisplay = isOutputLayer ? 'Sigmoid (Multi-label)' : 'Sigmoid';
+          } else if (layer.activation === 'relu') {
+            actDisplay = 'ReLU';
+          } else if (layer.activation === 'leaky_relu') {
+            actDisplay = 'Leaky ReLU';
+          } else if (layer.activation === 'tanh') {
+            actDisplay = 'Tanh';
+          }
 
           const isHoveredAct = hoveredHeaderLayerRef.current === l;
-          ctx.fillStyle = isHoveredAct ? '#3b82f6' : '#8e9299';
-          ctx.fillText(`Activation: ${actDisplay} (click)`, leftX, headerY + 29);
+          ctx.fillStyle = isHoveredAct ? '#60a5fa' : '#93c5fd';
+          ctx.fillText(`Activation: ${actDisplay} (click)`, leftX, headerY + 32);
 
           headerClickBoxesRef.current.push({
             layerIndex: l,
             x: leftX,
-            y: headerY + 27,
+            y: headerY + 30,
             width: headerWidth,
-            height: 15,
+            height: 16,
           });
         }
       }
@@ -402,7 +413,7 @@ export default function NetworkCanvas() {
       const dimmedLines: [NodeCoord, NodeCoord][] = [];
       const mathPhase1Lines: [NodeCoord, NodeCoord][] = [];
       const mathPhase4Lines: [NodeCoord, NodeCoord][] = [];
-      const focusLines: Array<{ from: NodeCoord; to: NodeCoord; color: string; width: number }> = [];
+      const focusLines: Array<{ from: NodeCoord; to: NodeCoord; color: string; width: number; isNegative: boolean }> = [];
 
       const posLow: [NodeCoord, NodeCoord][] = [];
       const posMid: [NodeCoord, NodeCoord][] = [];
@@ -444,8 +455,9 @@ export default function NetworkCanvas() {
               focus.layerIndex === l + 1 &&
               focus.neuronIndex === t;
 
-            // Threshold Culling: Skip drawing near-zero weights (Math.abs(w) < 0.02) unless hovered
-            if (!isConnectedToFocus && !isMathTargetSynapse && absW < 0.02) {
+            // Threshold Culling: Skip drawing weights below minWeightThreshold unless focused
+            const effectiveThreshold = hasFocusNeuron ? 0.01 : (minWeightThreshold ?? 0.04);
+            if (!isConnectedToFocus && !isMathTargetSynapse && absW < effectiveThreshold) {
               // Culled
             } else if (fromNeuron.disabled || toNeuron.disabled) {
               severedLines.push([fromNode, toNode]);
@@ -456,18 +468,18 @@ export default function NetworkCanvas() {
             } else if (isConnectedToFocus) {
               const alpha = Math.min(0.95, Math.max(0.4, absW * 0.45 + 0.35));
               const color = weight >= 0 ? `rgba(245, 158, 11, ${alpha})` : `rgba(239, 68, 68, ${alpha})`;
-              const strokeWidth = Math.min(2.0, Math.max(0.8, absW * 1.3));
-              focusLines.push({ from: fromNode, to: toNode, color, width: strokeWidth });
+              const strokeWidth = Math.min(2.5, Math.max(0.8, absW * 1.5));
+              focusLines.push({ from: fromNode, to: toNode, color, width: strokeWidth, isNegative: weight < 0 });
             } else if (hasFocusNeuron && !isConnectedToFocus) {
               dimmedLines.push([fromNode, toNode]);
             } else {
-              if (weight > 0) {
-                if (absW < 0.25) posLow.push([fromNode, toNode]);
-                else if (absW < 0.75) posMid.push([fromNode, toNode]);
+              if (weight >= 0) {
+                if (absW < 0.20) posLow.push([fromNode, toNode]);
+                else if (absW < 0.65) posMid.push([fromNode, toNode]);
                 else posHigh.push([fromNode, toNode]);
               } else {
-                if (absW < 0.25) negLow.push([fromNode, toNode]);
-                else if (absW < 0.75) negMid.push([fromNode, toNode]);
+                if (absW < 0.20) negLow.push([fromNode, toNode]);
+                else if (absW < 0.65) negMid.push([fromNode, toNode]);
                 else negHigh.push([fromNode, toNode]);
               }
             }
@@ -522,9 +534,19 @@ export default function NetworkCanvas() {
         }
       }
 
-      // Helper function to draw straight connection lines in batches
-      const drawLineBatch = (lines: [NodeCoord, NodeCoord][], strokeStyle: string, lineWidth: number) => {
+      // Helper function to draw straight connection lines in batches (with dashed support for colorblind distinction)
+      const drawLineBatch = (
+        lines: [NodeCoord, NodeCoord][],
+        strokeStyle: string,
+        lineWidth: number,
+        isDashed = false
+      ) => {
         if (lines.length === 0) return;
+        if (isDashed) {
+          ctx.setLineDash([4, 3]);
+        } else {
+          ctx.setLineDash([]);
+        }
         ctx.strokeStyle = strokeStyle;
         ctx.lineWidth = lineWidth;
         ctx.beginPath();
@@ -533,25 +555,30 @@ export default function NetworkCanvas() {
           ctx.lineTo(lines[i][1].x, lines[i][1].y);
         }
         ctx.stroke();
+        if (isDashed) {
+          ctx.setLineDash([]);
+        }
       };
 
-      // Draw batches cleanly (0.5px to 2.0px line widths, pure RGBA alpha brightness)
-      drawLineBatch(severedLines, 'rgba(239, 68, 68, 0.18)', 0.6);
-      drawLineBatch(dimmedLines, 'rgba(255, 255, 255, 0.025)', 0.5);
+      // Draw batches cleanly with opacity and thickness scaling (negative weights dashed)
+      drawLineBatch(severedLines, 'rgba(239, 68, 68, 0.22)', 0.6, true);
+      drawLineBatch(dimmedLines, 'rgba(255, 255, 255, 0.025)', 0.5, false);
 
-      drawLineBatch(posLow, 'rgba(245, 158, 11, 0.22)', 0.5);
-      drawLineBatch(posMid, 'rgba(245, 158, 11, 0.55)', 1.0);
-      drawLineBatch(posHigh, 'rgba(254, 240, 138, 0.85)', 1.6);
+      drawLineBatch(posLow, 'rgba(245, 158, 11, 0.20)', 0.6, false);
+      drawLineBatch(posMid, 'rgba(245, 158, 11, 0.55)', 1.1, false);
+      drawLineBatch(posHigh, 'rgba(254, 240, 138, 0.88)', 1.8, false);
 
-      drawLineBatch(negLow, 'rgba(239, 68, 68, 0.22)', 0.5);
-      drawLineBatch(negMid, 'rgba(239, 68, 68, 0.55)', 1.0);
-      drawLineBatch(negHigh, 'rgba(249, 115, 22, 0.85)', 1.6);
+      drawLineBatch(negLow, 'rgba(239, 68, 68, 0.24)', 0.6, true);
+      drawLineBatch(negMid, 'rgba(239, 68, 68, 0.58)', 1.1, true);
+      drawLineBatch(negHigh, 'rgba(249, 115, 22, 0.90)', 1.8, true);
 
-      drawLineBatch(mathPhase1Lines, 'rgba(254, 240, 138, 0.95)', 2.0);
-      drawLineBatch(mathPhase4Lines, 'rgba(236, 72, 153, 0.95)', 2.0);
+      drawLineBatch(mathPhase1Lines, 'rgba(254, 240, 138, 0.95)', 2.0, false);
+      drawLineBatch(mathPhase4Lines, 'rgba(236, 72, 153, 0.95)', 2.0, false);
 
       for (let i = 0; i < focusLines.length; i++) {
         const fl = focusLines[i];
+        if (fl.isNegative) ctx.setLineDash([4, 3]);
+        else ctx.setLineDash([]);
         ctx.strokeStyle = fl.color;
         ctx.lineWidth = fl.width;
         ctx.beginPath();
@@ -559,6 +586,7 @@ export default function NetworkCanvas() {
         ctx.lineTo(fl.to.x, fl.to.y);
         ctx.stroke();
       }
+      ctx.setLineDash([]);
 
       // 7. Update and Draw Particles (Linear Straight-Line Interpolation, NO shadowBlur)
       if (showParticles) {
@@ -671,7 +699,7 @@ export default function NetworkCanvas() {
             }
 
             // Real-time Numeric Readout
-            ctx.font = '8px "JetBrains Mono", monospace';
+            ctx.font = '11px "JetBrains Mono", monospace';
             ctx.fillStyle = '#93c5fd';
             ctx.textAlign = 'right';
             ctx.fillText(neuron.a.toFixed(2), oscX + oscWidth - 3, oscY + 8);
@@ -707,8 +735,9 @@ export default function NetworkCanvas() {
             ctx.fill();
             ctx.stroke();
 
-            // Mini Dead Icon Marker
-            ctx.font = 'bold 9px "JetBrains Mono", monospace';
+            // Mini Dead Icon Marker inside circle
+            const symbolScale = Math.max(0.7, Math.min(1.8, 1 / transformRef.current.zoom));
+            ctx.font = `bold ${Math.max(10, Math.round(11 * symbolScale))}px "JetBrains Mono", monospace`;
             ctx.fillStyle = '#f87171';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -741,29 +770,31 @@ export default function NetworkCanvas() {
               ctx.fill();
             }
 
-            // Activation text inside node if large enough
-            if (r >= 14) {
-              ctx.font = '8px "JetBrains Mono", monospace';
-              ctx.fillStyle = '#f4f4f5';
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'middle';
-              ctx.fillText(neuron.a.toFixed(1), coord.x, coord.y);
-            }
+            // ONLY ONE short value per node inside circle, scaled with zoom
+            const innerScale = Math.max(0.7, Math.min(1.6, 1 / transformRef.current.zoom));
+            const innerFontSize = Math.max(9, Math.round(10 * innerScale));
+            ctx.font = `${innerFontSize}px "JetBrains Mono", monospace`;
+            ctx.fillStyle = '#f4f4f5';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(neuron.a.toFixed(1), coord.x, coord.y);
           }
 
-          // Node Label
-          ctx.font = '9px "JetBrains Mono", monospace';
-          ctx.fillStyle = isSelected ? '#38bdf8' : isHovered ? '#fef08a' : '#8e9299';
+          // Node Label: Single short value, scaled with zoom level so it stays >= 11px on screen, WCAG AA contrast
+          const screenScale = Math.max(0.75, Math.min(2.0, 1 / transformRef.current.zoom));
+          const labelFontSize = Math.max(11, Math.round(11 * screenScale));
+          ctx.font = `bold ${labelFontSize}px "JetBrains Mono", monospace`;
+          ctx.fillStyle = isSelected
+            ? '#38bdf8'
+            : isHovered
+            ? '#fef08a'
+            : neuron.isDead
+            ? '#f87171'
+            : '#e4e4e7';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
-          ctx.fillText(neuron.label, coord.x, coord.y + r + 3);
-
-          // If Dying ReLU, show DEAD tag
-          if (neuron.isDead && !neuron.disabled) {
-            ctx.font = 'bold 8px "JetBrains Mono", monospace';
-            ctx.fillStyle = '#ef4444';
-            ctx.fillText('DEAD', coord.x, coord.y + r + 13);
-          }
+          const nodeLabelText = neuron.isDead && !neuron.disabled ? `${neuron.label} [DEAD]` : neuron.label;
+          ctx.fillText(nodeLabelText, coord.x, coord.y + r + 4);
         }
       }
 
@@ -1088,17 +1119,26 @@ export default function NetworkCanvas() {
         worldY >= box.y &&
         worldY <= box.y + box.height
       ) {
-        const activations: ActivationType[] = ['relu', 'leaky_relu', 'sigmoid', 'tanh', 'linear'];
+        const currentTopology = topology.length > 0 ? topology : engine.topology;
+        const isOutput = box.layerIndex === currentTopology.length - 1;
+        const activations: ActivationType[] = isOutput
+          ? ['softmax', 'sigmoid', 'linear']
+          : ['relu', 'leaky_relu', 'sigmoid', 'tanh', 'linear'];
         const currentAct = engine.layers[box.layerIndex].activation;
         const nextAct = activations[(activations.indexOf(currentAct) + 1) % activations.length];
-        const currentTopology = topology.length > 0 ? topology : engine.topology;
+
         if (box.layerIndex > 0 && box.layerIndex < currentTopology.length - 1) {
           engine.setActivation(nextAct, box.layerIndex);
           setHiddenActivation(nextAct);
         } else {
           engine.outputActivation = nextAct;
           engine.layers[box.layerIndex].activation = nextAct;
-          useNetworkStore.setState({ outputActivation: nextAct });
+          if (nextAct === 'softmax') {
+            engine.lossType = 'cross_entropy';
+            useNetworkStore.setState({ outputActivation: nextAct, lossType: 'cross_entropy' });
+          } else {
+            useNetworkStore.setState({ outputActivation: nextAct });
+          }
           syncMetrics();
         }
         return;
@@ -1159,38 +1199,119 @@ export default function NetworkCanvas() {
         <div className="absolute top-3 left-4 flex items-center space-x-2 text-[11px] font-mono pointer-events-none">
           <div className="flex items-center space-x-1.5 px-2.5 py-1 bg-[#18191c] border border-[#2a2b30] rounded-[2px] text-[#e4e4e7]">
             <Activity className="w-3.5 h-3.5 text-[#3b82f6]" />
-            <span className="text-[#8e9299]">FPS:</span>
+            <span className="text-zinc-300 font-semibold">FPS:</span>
             <span className={fps >= 55 ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
               {fps}
             </span>
           </div>
 
           <div className="flex items-center space-x-1.5 px-2.5 py-1 bg-[#18191c] border border-[#2a2b30] rounded-[2px] text-[#e4e4e7]">
-            <Cpu className="w-3.5 h-3.5 text-[#8e9299]" />
-            <span className="text-[#8e9299]">PARAMS:</span>
-            <span className="text-[#e4e4e7] font-bold">
+            <Cpu className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="text-zinc-300 font-semibold">PARAMS:</span>
+            <span className="text-zinc-100 font-bold">
               {engine.metrics.totalParameters.toLocaleString()}
             </span>
           </div>
 
           <div className="flex items-center space-x-1.5 px-2.5 py-1 bg-[#18191c] border border-[#2a2b30] rounded-[2px] text-[#e4e4e7]">
-            <Zap className="w-3.5 h-3.5 text-[#8e9299]" />
-            <span className="text-[#8e9299]">SPEED:</span>
-            <span className="text-[#e4e4e7] font-bold">{trainingSpeed}x</span>
+            <Zap className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="text-zinc-300 font-semibold">SPEED:</span>
+            <span className="text-zinc-100 font-bold">{trainingSpeed}x</span>
           </div>
         </div>
       )}
 
+      {/* Floating Interactive Canvas Legend (Requirement 7) */}
+      <div className="absolute bottom-11 left-4 z-20 font-mono text-[11px]">
+        {!legendOpen ? (
+          <button
+            onClick={() => setLegendOpen(true)}
+            title="Expand Canvas Legend"
+            className="flex items-center space-x-1.5 px-2.5 py-1 bg-[#18191c]/95 hover:bg-[#25272c] border border-[#2a2b30] text-zinc-200 hover:text-white rounded-[2px] shadow transition-colors"
+          >
+            <Info className="w-3.5 h-3.5 text-blue-400" />
+            <span className="font-semibold">LEGEND</span>
+            <ChevronUp className="w-3 h-3 text-zinc-400" />
+          </button>
+        ) : (
+          <div className="bg-[#18191c]/95 border border-[#2a2b30] rounded-[2px] p-2.5 text-zinc-200 shadow-2xl max-w-xs space-y-2 backdrop-blur-md">
+            <div className="flex items-center justify-between pb-1 border-b border-[#2a2b30]">
+              <span className="font-bold text-zinc-100 flex items-center space-x-1.5">
+                <Info className="w-3.5 h-3.5 text-blue-400" />
+                <span>CANVAS LEGEND</span>
+              </span>
+              <button
+                onClick={() => setLegendOpen(false)}
+                className="text-zinc-400 hover:text-white p-0.5 rounded-[2px] hover:bg-[#25272c] transition-colors"
+                title="Collapse Legend"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Weights */}
+            <div className="space-y-1">
+              <div className="text-[10px] text-zinc-400 uppercase font-bold">SYNAPSE WEIGHTS</div>
+              <div className="flex items-center space-x-2">
+                <span className="w-5 h-0.5 bg-amber-400 inline-block" />
+                <span>Positive (w &gt; 0, Solid)</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="w-5 h-0.5 border-b-2 border-dashed border-red-500 inline-block" />
+                <span>Negative (w &lt; 0, Dashed)</span>
+              </div>
+              <div className="text-[10px] text-zinc-400">Opacity &amp; thickness scaled by |w|</div>
+            </div>
+
+            {/* Neurons */}
+            <div className="space-y-1 pt-1 border-t border-[#2a2b30]/60">
+              <div className="text-[10px] text-zinc-400 uppercase font-bold">NEURON NODES</div>
+              <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                <div className="flex items-center space-x-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500 border border-blue-300 inline-block" />
+                  <span>Input/Output</span>
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 border border-amber-300 inline-block" />
+                  <span>Hidden</span>
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-950 border border-red-500 inline-block text-[8px] text-center leading-[8px] text-red-400 font-bold">†</span>
+                  <span>Dead ReLU</span>
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-zinc-900 border border-red-500 inline-block text-[8px] text-center leading-[8px] text-red-400 font-bold">✕</span>
+                  <span>Killed</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Particles */}
+            <div className="space-y-1 pt-1 border-t border-[#2a2b30]/60">
+              <div className="text-[10px] text-zinc-400 uppercase font-bold">PARTICLE SIGNALS</div>
+              <div className="flex items-center space-x-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
+                <span>Forward Feed (L → R)</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="w-2 h-2 rounded-full bg-pink-500 inline-block" />
+                <span>Backprop Gradient (R → L)</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Floating Bottom-Left Prompt / Interaction Tips */}
-      <div className="absolute bottom-3 left-4 hidden md:flex items-center space-x-2 text-[11px] font-mono pointer-events-none text-[#8e9299] bg-[#18191c]/90 px-3 py-1 rounded-[2px] border border-[#2a2b30]">
+      <div className="absolute bottom-3 left-4 hidden md:flex items-center space-x-2 text-[11px] font-mono pointer-events-none text-zinc-300 bg-[#18191c]/95 px-3 py-1 rounded-[2px] border border-[#2a2b30]">
         <span className="text-[#3b82f6] font-semibold">[Click Node]</span>
         <span>Kill / Dropout Neuron</span>
         <span className="text-[#2a2b30]">|</span>
         <span className="text-[#f59e0b] font-semibold">[Hover Node]</span>
         <span>Formula Inspector</span>
         <span className="text-[#2a2b30]">|</span>
-        <span className="text-[#e4e4e7]">[Drag & Wheel]</span>
-        <span>Pan & Zoom</span>
+        <span className="text-zinc-100">[Drag &amp; Wheel]</span>
+        <span>Pan &amp; Zoom</span>
       </div>
 
       {/* 2D Decision Boundary Canvas in the Corner per Requirement 4.4 */}
@@ -1201,31 +1322,32 @@ export default function NetworkCanvas() {
       )}
 
       {/* Floating Top-Right Viewport Camera Controls */}
-      <div className="absolute top-3 right-4 flex items-center space-x-1 bg-[#18191c] border border-[#2a2b30] rounded-[2px] p-1">
+      <div className="absolute top-3 right-4 flex items-center space-x-1 bg-[#18191c] border border-[#2a2b30] rounded-[2px] p-1 font-mono">
         <button
           onClick={() => handleZoom(0.15)}
           title="Zoom In"
-          className="p-1.5 hover:bg-[#222429] text-[#8e9299] hover:text-[#e4e4e7] rounded-[2px] transition-colors"
+          className="p-1.5 hover:bg-[#222429] text-zinc-300 hover:text-white rounded-[2px] transition-colors"
         >
           <ZoomIn className="w-4 h-4" />
         </button>
-        <div className="px-2 text-[10px] font-mono text-[#8e9299] min-w-[42px] text-center">
+        <div className="px-1.5 text-[11px] font-mono text-zinc-200 min-w-[42px] text-center font-bold">
           {zoomDisplay}%
         </div>
         <button
           onClick={() => handleZoom(-0.15)}
           title="Zoom Out"
-          className="p-1.5 hover:bg-[#222429] text-[#8e9299] hover:text-[#e4e4e7] rounded-[2px] transition-colors"
+          className="p-1.5 hover:bg-[#222429] text-zinc-300 hover:text-white rounded-[2px] transition-colors"
         >
           <ZoomOut className="w-4 h-4" />
         </button>
         <div className="h-4 w-px bg-[#2a2b30]" />
         <button
           onClick={handleAutoFitClick}
-          title="Auto-Fit Camera"
-          className="p-1.5 hover:bg-[#222429] text-[#8e9299] hover:text-[#e4e4e7] rounded-[2px] transition-colors"
+          title="Fit Network to View"
+          className="flex items-center space-x-1 px-2 py-1 bg-[#1f2024] hover:bg-[#25272c] text-zinc-200 hover:text-white rounded-[2px] transition-colors border border-[#2a2b30] text-[11px] font-semibold"
         >
-          <Maximize2 className="w-4 h-4" />
+          <Maximize2 className="w-3.5 h-3.5 text-zinc-300" />
+          <span className="hidden sm:inline">FIT TO VIEW</span>
         </button>
       </div>
     </div>

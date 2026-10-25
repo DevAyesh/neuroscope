@@ -21,6 +21,7 @@ import {
   VolumeX,
   GraduationCap,
   BookOpen,
+  Undo2,
 } from 'lucide-react';
 
 export default function TopControlBar() {
@@ -31,6 +32,8 @@ export default function TopControlBar() {
     hiddenActivation,
     optimizer,
     deadNeurons,
+    killedNeuronsHistory,
+    undoLastKill,
     togglePlay,
     stepOnce,
     resetWeights,
@@ -92,7 +95,7 @@ export default function TopControlBar() {
     }
   }, []);
 
-  // Keyboard shortcut: Spacebar to toggle Play/Pause
+  // Global Keyboard shortcuts: Space = Play/Pause, S = Step, R = Reset, J = Jitter, U = Undo kill
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -101,11 +104,23 @@ export default function TopControlBar() {
       if (e.code === 'Space') {
         e.preventDefault();
         togglePlay();
+      } else if (e.key === 's' || e.key === 'S') {
+        e.preventDefault();
+        stepOnce();
+      } else if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        resetWeights();
+      } else if (e.key === 'j' || e.key === 'J') {
+        e.preventDefault();
+        perturbWeights();
+      } else if (e.key === 'u' || e.key === 'U') {
+        e.preventDefault();
+        undoLastKill();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlay]);
+  }, [togglePlay, stepOnce, resetWeights, perturbWeights, undoLastKill]);
 
   const handleShare = () => {
     const url = getShareableUrl();
@@ -168,7 +183,7 @@ export default function TopControlBar() {
             <div
               role="listbox"
               aria-label="Educational Scenarios"
-              className="fixed left-2 right-2 sm:right-auto sm:left-0 top-12 sm:top-full mt-1.5 sm:w-80 max-w-[calc(100vw-1rem)] bg-[#18191c] border border-[#2a2b30] rounded-[2px] shadow-xl p-1 z-50 font-mono text-xs max-h-[calc(100vh-4rem)] overflow-y-auto"
+              className="absolute left-0 top-full mt-1.5 w-72 sm:w-80 max-w-[calc(100vw-2rem)] bg-[#18191c] border border-[#2a2b30] rounded-[2px] shadow-2xl p-1 z-50 font-mono text-xs max-h-[calc(100vh-4rem)] overflow-y-auto"
             >
               <div className="px-2 py-1 text-[10px] text-zinc-500 uppercase border-b border-[#2a2b30] mb-1 flex items-center justify-between">
                 <span>Select Educational Scenario</span>
@@ -271,40 +286,52 @@ export default function TopControlBar() {
 
         <button
           onClick={stepOnce}
-          title="Step Forward 1 Epoch"
-          className="p-1 sm:px-1.5 sm:py-1 bg-[#1f2024] hover:bg-[#25272c] text-zinc-300 hover:text-white border border-[#2a2b30] rounded-[2px] font-mono text-xs flex items-center space-x-1 transition-colors"
+          title="Step Forward 1 Epoch (S)"
+          className="p-1 sm:px-1.5 sm:py-1 bg-[#1f2024] hover:bg-[#25272c] text-zinc-200 hover:text-white border border-[#2a2b30] rounded-[2px] font-mono text-xs flex items-center space-x-1 transition-colors"
         >
           <SkipForward className="w-3.5 h-3.5" />
-          <span className="hidden lg:inline">STEP</span>
+          <span className="hidden lg:inline">STEP (S)</span>
         </button>
 
         <button
           onClick={resetWeights}
-          title="Reset Weights & Biases"
-          className="p-1 sm:px-1.5 sm:py-1 bg-[#1f2024] hover:bg-[#25272c] text-zinc-300 hover:text-white border border-[#2a2b30] rounded-[2px] font-mono text-xs flex items-center space-x-1 transition-colors"
+          title="Reset Weights & Biases (R)"
+          className="p-1 sm:px-1.5 sm:py-1 bg-[#1f2024] hover:bg-[#25272c] text-zinc-200 hover:text-white border border-[#2a2b30] rounded-[2px] font-mono text-xs flex items-center space-x-1 transition-colors"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          <span className="hidden lg:inline">RESET</span>
+          <span className="hidden lg:inline">RESET (R)</span>
         </button>
 
         <button
           onClick={perturbWeights}
-          title="Perturb Weights (Noise Injection)"
-          className="p-1 sm:px-1.5 sm:py-1 bg-[#1f2024] hover:bg-[#25272c] text-zinc-300 hover:text-white border border-[#2a2b30] rounded-[2px] font-mono text-xs flex items-center space-x-1 transition-colors"
+          title="Perturb Weights / Jitter (J)"
+          className="p-1 sm:px-1.5 sm:py-1 bg-[#1f2024] hover:bg-[#25272c] text-zinc-200 hover:text-white border border-[#2a2b30] rounded-[2px] font-mono text-xs flex items-center space-x-1 transition-colors"
         >
           <Sparkles className="w-3.5 h-3.5" />
-          <span className="hidden 2xl:inline">JITTER</span>
+          <span className="hidden 2xl:inline">JITTER (J)</span>
         </button>
 
-        {/* Dying ReLU quick fix button (shown if necrotic neurons exist or in dying_relu preset) */}
-        {(deadNeurons > 0 || currentPresetId === 'dying_relu') && (
+        {/* Undo Kill Action Button (visible when killed neurons exist) */}
+        {killedNeuronsHistory.length > 0 && (
+          <button
+            onClick={undoLastKill}
+            title="Undo Last Killed Neuron (U)"
+            className="flex items-center space-x-1 px-1.5 py-1 bg-[#1f2024] hover:bg-[#25272c] border border-amber-500/60 text-amber-300 rounded-[2px] font-mono text-xs transition-colors"
+          >
+            <Undo2 className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">UNDO KILL</span>
+          </button>
+        )}
+
+        {/* Dying ReLU quick fix button (ONLY shown when dead neurons exist per Requirement 13) */}
+        {deadNeurons > 0 && (
           <button
             onClick={reviveDyingNeurons}
-            title="Revive Dead Neurons using Leaky ReLU"
-            className="flex items-center space-x-1 px-1.5 py-1 bg-[#1f2024] hover:bg-[#25272c] border border-red-500/60 text-red-300 rounded-[2px] font-mono text-xs transition-colors"
+            title={`Revive ${deadNeurons} Dead Neurons using Leaky ReLU`}
+            className="flex items-center space-x-1 px-1.5 py-1 bg-[#1f2024] hover:bg-[#25272c] border border-red-500/60 text-red-300 rounded-[2px] font-mono text-xs transition-colors animate-pulse"
           >
             <Flame className="w-3.5 h-3.5 text-red-400" />
-            <span className="hidden sm:inline">REVIVE</span>
+            <span className="hidden sm:inline">REVIVE ({deadNeurons})</span>
           </button>
         )}
       </div>
@@ -337,7 +364,7 @@ export default function TopControlBar() {
             className="bg-transparent text-zinc-200 font-mono text-xs outline-none cursor-pointer"
           >
             <option value="relu" className="bg-[#18191c]">ReLU</option>
-            <option value="leaky_relu" className="bg-[#18191c]">Leaky</option>
+            <option value="leaky_relu" className="bg-[#18191c]">Leaky ReLU</option>
             <option value="sigmoid" className="bg-[#18191c]">Sigmoid</option>
             <option value="tanh" className="bg-[#18191c]">Tanh</option>
             <option value="linear" className="bg-[#18191c]">Linear</option>

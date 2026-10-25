@@ -178,6 +178,35 @@ export default function LearningOutcomesModal() {
           {/* TAB 1: CORE LEARNING OUTCOMES */}
           {activeTab === 'outcomes' && (
             <div className="space-y-4">
+              {/* Keyboard Shortcuts Reference (Requirement 13) */}
+              <div className="bg-[#111215] border border-[#2a2b30] rounded-[2px] p-3 text-xs space-y-2">
+                <div className="flex items-center justify-between border-b border-[#2a2b30] pb-1.5">
+                  <span className="font-bold text-zinc-100 flex items-center space-x-1.5">
+                    <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                    <span>KEYBOARD SHORTCUTS &amp; CONTROLS</span>
+                  </span>
+                  <span className="text-[10px] text-zinc-400 font-mono">Real-time Debugger Controls</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                  <div className="flex items-center space-x-1.5 bg-[#18191c] p-1.5 rounded-[2px] border border-[#2a2b30]">
+                    <kbd className="px-1.5 py-0.5 rounded bg-[#25272c] border border-[#3a3b40] font-bold text-zinc-100 text-[10px]">Space</kbd>
+                    <span className="text-zinc-200">Play / Pause</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5 bg-[#18191c] p-1.5 rounded-[2px] border border-[#2a2b30]">
+                    <kbd className="px-1.5 py-0.5 rounded bg-[#25272c] border border-[#3a3b40] font-bold text-zinc-100 text-[10px]">S</kbd>
+                    <span className="text-zinc-200">Step 1 Epoch</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5 bg-[#18191c] p-1.5 rounded-[2px] border border-[#2a2b30]">
+                    <kbd className="px-1.5 py-0.5 rounded bg-[#25272c] border border-[#3a3b40] font-bold text-zinc-100 text-[10px]">R</kbd>
+                    <span className="text-zinc-200">Reset Weights</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5 bg-[#18191c] p-1.5 rounded-[2px] border border-[#2a2b30]">
+                    <kbd className="px-1.5 py-0.5 rounded bg-[#25272c] border border-[#3a3b40] font-bold text-zinc-100 text-[10px]">J</kbd>
+                    <span className="text-zinc-200">Jitter (Noise)</span>
+                  </div>
+                </div>
+              </div>
+
               <div className="bg-[#1f2024] border border-[#2a2b30] rounded-[2px] p-3 sm:p-4 text-xs text-zinc-300 flex items-start space-x-3">
                 <Sparkles className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
                 <div className="leading-relaxed">
