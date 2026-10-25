@@ -13,6 +13,8 @@ import {
   generate2DSpiralData,
   generateStepMathData,
   DataSample,
+  splitTrainVal,
+  formatLoss,
 } from '@/lib/nn-engine';
 import { audioSynth } from '@/lib/audio-synth';
 
@@ -40,11 +42,13 @@ export interface NetworkStoreState {
   showBackpropGradients: boolean;
   showOscilloscopes: boolean;
   showParticles: boolean;
+  minWeightThreshold: number;
   viewportZoom: number;
 
   // Selected / Hovered state
   selectedNeuron: { layerIndex: number; neuronIndex: number } | null;
   hoveredNeuron: { layerIndex: number; neuronIndex: number } | null;
+  killedNeuronsHistory: { layerIndex: number; neuronIndex: number }[];
 
   // Step-by-Step Math Mode
   stepMathTraces: StepTraceMath[];
@@ -55,28 +59,39 @@ export interface NetworkStoreState {
   step: number;
   currentLoss: number;
   currentAccuracy: number;
+  valLoss: number;
+  valAccuracy: number;
   gradNorm: number;
   deadNeurons: number;
   activeNeurons: number;
   totalParameters: number;
-  lossHistory: { epoch: number; loss: number; accuracy: number }[];
+  lossHistory: { epoch: number; loss: number; accuracy: number; valLoss: number; valAccuracy: number }[];
   terminalLogs: TerminalLogEntry[];
+
+  // Auto-pause on convergence
+  autoPauseOnConvergence: boolean;
+  isConverged: boolean;
 
   // Output probabilities (for live gauge bars)
   outputProbabilities: { label: string; value: number }[];
 
-  // Engine holder
+  // Engine holder & Train/Val Split Datasets
   engine: NeuralNetwork;
   currentDataset: DataSample[];
+  trainDataset: DataSample[];
+  valDataset: DataSample[];
 
   // Actions
   setIsPlaying: (playing: boolean) => void;
   togglePlay: () => void;
   stepOnce: () => void;
+  setAutoPauseOnConvergence: (enabled: boolean) => void;
+  regenerateData: () => void;
   setTrainingSpeed: (speed: number) => void;
   setShowBackpropGradients: (show: boolean) => void;
   setShowOscilloscopes: (show: boolean) => void;
   setShowParticles: (show: boolean) => void;
+  setMinWeightThreshold: (val: number) => void;
   setLearningRate: (lr: number) => void;
   setHiddenActivation: (act: ActivationType) => void;
   setOptimizer: (opt: OptimizerType) => void;
@@ -84,6 +99,7 @@ export interface NetworkStoreState {
   setSelectedNeuron: (neuron: { layerIndex: number; neuronIndex: number } | null) => void;
   setHoveredNeuron: (neuron: { layerIndex: number; neuronIndex: number } | null) => void;
   toggleNeuronDisabled: (layerIndex: number, neuronIndex: number) => void;
+  undoLastKill: () => void;
   
   // Architecture modification
   addHiddenLayer: () => void;
@@ -155,7 +171,8 @@ const initialEngine = new NeuralNetwork(
   defaultPreset.optimizer
 );
 initialEngine.lossType = defaultPreset.lossType;
-const initialDataset = generateWaveData(0, 80);
+const initialDataset = generateWaveData(0, 100);
+const initialSplit = splitTrainVal(initialDataset, 0.8);
 
 export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
   currentPresetId: defaultPreset.id,
@@ -172,6 +189,7 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
   showBackpropGradients: true,
   showOscilloscopes: true,
   showParticles: true,
+  minWeightThreshold: 0.04,
   viewportZoom: 1.0,
 
   isAudioMuted: true,
@@ -184,6 +202,7 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
 
   selectedNeuron: null,
   hoveredNeuron: null,
+  killedNeuronsHistory: [],
 
   stepMathTraces: [],
   stepMathIndex: 0,
@@ -192,11 +211,15 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
   step: 0,
   currentLoss: 0,
   currentAccuracy: 0,
+  valLoss: 0,
+  valAccuracy: 0,
   gradNorm: 0,
   deadNeurons: 0,
   activeNeurons: initialEngine.metrics.activeNeuronCount,
   totalParameters: initialEngine.metrics.totalParameters,
   lossHistory: [],
+  autoPauseOnConvergence: false,
+  isConverged: false,
   terminalLogs: [
     {
       id: 'init-1',
@@ -215,6 +238,36 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
 
   engine: initialEngine,
   currentDataset: initialDataset,
+  trainDataset: initialSplit.train,
+  valDataset: initialSplit.val,
+
+  setAutoPauseOnConvergence: (autoPauseOnConvergence) => set({ autoPauseOnConvergence }),
+
+  regenerateData: () => {
+    const { currentPresetId } = get();
+    let dataset: DataSample[] = [];
+    const seedOffset = Math.random() * 500;
+    if (currentPresetId === 'signal_debugger') {
+      dataset = generateWaveData(seedOffset, 100);
+    } else if (currentPresetId === 'dying_relu') {
+      dataset = generateDyingReLUData(100);
+    } else if (currentPresetId === 'vanishing_grad') {
+      dataset = generateVanishingGradData(100);
+    } else if (currentPresetId === '2d_classifier') {
+      dataset = generate2DSpiralData(75);
+    } else {
+      dataset = generateStepMathData();
+    }
+    const split = splitTrainVal(dataset, 0.8);
+    set({
+      currentDataset: dataset,
+      trainDataset: split.train,
+      valDataset: split.val,
+      isConverged: false,
+    });
+    get().addLog('info', 'Dataset regenerated with fresh random samples (80% train / 20% validation split). Architecture & weights preserved.');
+    get().syncMetrics();
+  },
 
   setIsPlaying: (playing) => set({ isPlaying: playing }),
   togglePlay: () => {
@@ -224,8 +277,9 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
   },
 
   stepOnce: () => {
-    const { engine, currentDataset } = get();
-    engine.trainStep(currentDataset, 1);
+    const { engine, trainDataset, currentDataset } = get();
+    const datasetToUse = trainDataset.length > 0 ? trainDataset : currentDataset;
+    engine.trainStep(datasetToUse, 1);
     audioSynth.triggerPulse('forward');
     get().syncMetrics();
   },
@@ -234,6 +288,7 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
   setShowBackpropGradients: (showBackpropGradients) => set({ showBackpropGradients }),
   setShowOscilloscopes: (showOscilloscopes) => set({ showOscilloscopes }),
   setShowParticles: (showParticles) => set({ showParticles }),
+  setMinWeightThreshold: (minWeightThreshold) => set({ minWeightThreshold }),
 
   setLearningRate: (learningRate) => {
     const { engine } = get();
@@ -277,14 +332,18 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
   setHoveredNeuron: (neuron) => set({ hoveredNeuron: neuron }),
 
   toggleNeuronDisabled: (layerIndex, neuronIndex) => {
-    const { engine } = get();
+    const { engine, killedNeuronsHistory } = get();
     const isDisabled = engine.toggleNeuron(layerIndex, neuronIndex);
     const neuronLabel = engine.layers[layerIndex]?.neurons[neuronIndex]?.label || `L${layerIndex}N${neuronIndex}`;
+    let newHistory = [...killedNeuronsHistory];
     if (isDisabled) {
+      newHistory.push({ layerIndex, neuronIndex });
       audioSynth.triggerNeuronKill();
     } else {
+      newHistory = newHistory.filter((k) => !(k.layerIndex === layerIndex && k.neuronIndex === neuronIndex));
       audioSynth.triggerRevival();
     }
+    set({ killedNeuronsHistory: newHistory });
     get().addLog(
       isDisabled ? 'warn' : 'success',
       isDisabled
@@ -292,6 +351,23 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
         : `[Neuron Restored] ${neuronLabel} RE-ENABLED. Synapses reconnected.`
     );
     get().syncMetrics();
+  },
+
+  undoLastKill: () => {
+    const { killedNeuronsHistory, engine } = get();
+    if (killedNeuronsHistory.length === 0) return;
+    const last = killedNeuronsHistory[killedNeuronsHistory.length - 1];
+    const newHistory = killedNeuronsHistory.slice(0, -1);
+    const neuron = engine.layers[last.layerIndex]?.neurons[last.neuronIndex];
+    if (neuron && neuron.disabled) {
+      neuron.disabled = false;
+      audioSynth.triggerRevival();
+      get().addLog('success', `[Undo Kill] ${neuron.label} restored. Synapses reconnected.`);
+      set({ killedNeuronsHistory: newHistory });
+      get().syncMetrics();
+    } else {
+      set({ killedNeuronsHistory: newHistory });
+    }
   },
 
   addHiddenLayer: () => {
@@ -389,21 +465,23 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
     let dataset: DataSample[] = [];
     switch (preset.datasetName) {
       case 'wave_17':
-        dataset = generateWaveData(0, 80);
+        dataset = generateWaveData(0, 100);
         break;
       case 'dying_relu':
-        dataset = generateDyingReLUData(80);
+        dataset = generateDyingReLUData(100);
         break;
       case 'vanishing_grad':
-        dataset = generateVanishingGradData(80);
+        dataset = generateVanishingGradData(100);
         break;
       case 'xor_spiral':
-        dataset = generate2DSpiralData(60);
+        dataset = generate2DSpiralData(75);
         break;
       case 'step_math':
         dataset = generateStepMathData();
         break;
     }
+
+    const split = splitTrainVal(dataset, 0.8);
 
     const newEngine = new NeuralNetwork(
       preset.topology,
@@ -427,6 +505,11 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
       lossType: preset.lossType,
       engine: newEngine,
       currentDataset: dataset,
+      trainDataset: split.train,
+      valDataset: split.val,
+      valLoss: 0,
+      valAccuracy: 0,
+      isConverged: false,
       selectedNeuron: null,
       stepMathTraces: traces,
       stepMathIndex: 0,
@@ -458,9 +541,10 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
   },
 
   nextMathStep: () => {
-    const { stepMathTraces, stepMathIndex, engine, currentDataset, selectedNeuron } = get();
+    const { stepMathTraces, stepMathIndex, engine, trainDataset, currentDataset, selectedNeuron } = get();
+    const datasetToUse = trainDataset.length > 0 ? trainDataset : currentDataset;
     if (stepMathTraces.length === 0) {
-      const sample = currentDataset[0] || { inputs: [0, 0], targets: [0] };
+      const sample = datasetToUse[0] || { inputs: [0, 0], targets: [0] };
       const layer = selectedNeuron?.layerIndex ?? 1;
       const neuron = selectedNeuron?.neuronIndex ?? 0;
       const traces = engine.getStepTrace(sample, layer, neuron);
@@ -473,9 +557,9 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
 
     // If wrapped to 0, execute 1 actual training step
     if (nextIdx === 0) {
-      engine.trainStep(currentDataset, 1);
+      engine.trainStep(datasetToUse, 1);
       get().syncMetrics();
-      const sample = currentDataset[0] || { inputs: [0, 0], targets: [0] };
+      const sample = datasetToUse[0] || { inputs: [0, 0], targets: [0] };
       const layer = selectedNeuron?.layerIndex ?? 1;
       const neuron = selectedNeuron?.neuronIndex ?? 0;
       const traces = engine.getStepTrace(sample, layer, neuron);
@@ -484,7 +568,7 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
   },
 
   syncMetrics: () => {
-    const { engine } = get();
+    const { engine, valDataset, autoPauseOnConvergence, isConverged, isPlaying } = get();
     const outputLayer = engine.layers[engine.layers.length - 1];
     const probs = outputLayer
       ? outputLayer.neurons.map((n, i) => ({
@@ -493,6 +577,20 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
         }))
       : [];
 
+    const valMetrics = valDataset.length > 0
+      ? engine.evaluate(valDataset)
+      : { loss: engine.metrics.loss, accuracy: engine.metrics.accuracy };
+
+    // Auto-pause on convergence check
+    if (autoPauseOnConvergence && isPlaying && !isConverged && engine.metrics.epoch >= 15) {
+      const isLossConverged = engine.metrics.loss < 0.001;
+      const isAccConverged = engine.metrics.accuracy >= 99.5 && valMetrics.accuracy >= 98.0;
+      if (isLossConverged || isAccConverged) {
+        set({ isPlaying: false, isConverged: true });
+        get().addLog('success', `🎯 Convergence detected (Loss: ${formatLoss(engine.metrics.loss)}, Val Acc: ${valMetrics.accuracy.toFixed(1)}%). Auto-paused.`);
+      }
+    }
+
     set((state) => {
       const newHistory = [...state.lossHistory];
       if (newHistory.length === 0 || engine.metrics.epoch > (newHistory[newHistory.length - 1]?.epoch ?? 0)) {
@@ -500,8 +598,10 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
           epoch: engine.metrics.epoch,
           loss: engine.metrics.loss,
           accuracy: engine.metrics.accuracy,
+          valLoss: valMetrics.loss,
+          valAccuracy: valMetrics.accuracy,
         });
-        if (newHistory.length > 50) newHistory.shift();
+        if (newHistory.length > 100) newHistory.shift();
       }
 
       return {
@@ -509,6 +609,8 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
         step: engine.metrics.step,
         currentLoss: engine.metrics.loss,
         currentAccuracy: engine.metrics.accuracy,
+        valLoss: valMetrics.loss,
+        valAccuracy: valMetrics.accuracy,
         gradNorm: engine.metrics.gradNorm,
         deadNeurons: engine.metrics.deadNeuronCount,
         activeNeurons: engine.metrics.activeNeuronCount,
