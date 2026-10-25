@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import TopControlBar from '@/components/TopControlBar';
 import ControlSidebar from '@/components/ControlSidebar';
@@ -25,6 +25,23 @@ function UrlSyncWrapper() {
 }
 
 export default function Home() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <main className="h-screen w-screen overflow-hidden flex flex-col bg-[#111215] font-mono text-zinc-400 items-center justify-center text-xs">
+        <div className="flex items-center space-x-2">
+          <div className="w-3.5 h-3.5 border-2 border-zinc-600 border-t-zinc-200 rounded-full animate-spin" />
+          <span className="tracking-wider">INITIALIZING NEUROSCOPE KERNEL...</span>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="h-screen w-screen overflow-hidden flex flex-col bg-[#111215] font-mono text-zinc-200">
       <Suspense fallback={null}>
