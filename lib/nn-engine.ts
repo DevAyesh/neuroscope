@@ -387,9 +387,19 @@ export class NeuralNetwork {
   }
 
   public predict(inputs: number[]): number[] {
-    let currentActivations = inputs.map((v, i) =>
-      this.layers[0]?.neurons[i]?.disabled ? 0 : (v ?? 0)
-    );
+    const inputLayer = this.layers[0];
+    const inputSize = inputLayer ? inputLayer.size : inputs.length;
+    let currentActivations = new Array(inputSize);
+    for (let i = 0; i < inputSize; i++) {
+      if (inputLayer?.neurons[i]?.disabled) {
+        currentActivations[i] = 0;
+      } else {
+        const val = inputs[i] !== undefined && !Number.isNaN(inputs[i])
+          ? inputs[i]
+          : (inputs[i % Math.max(1, inputs.length)] ?? 0.5);
+        currentActivations[i] = val;
+      }
+    }
 
     for (let l = 1; l < this.layers.length; l++) {
       const prevActivations = currentActivations;
@@ -449,7 +459,12 @@ export class NeuralNetwork {
     for (let i = 0; i < inputLayer.size; i++) {
       const neuron = inputLayer.neurons[i];
       neuron.droppedOut = false;
-      const val = inputs[i] !== undefined ? inputs[i] : 0;
+      let val = inputs[i];
+      if (val === undefined || Number.isNaN(val)) {
+        // Fallback for missing input dimensions: derive active harmonic signal rather than dead flatline
+        const t = this.metrics.epoch * 0.05 + neuron.historyA.length * 0.1;
+        val = Math.sin(t * (0.5 + (i % 8) * 0.3) + (i * Math.PI) / 6) * 0.4 + 0.5;
+      }
       neuron.z = val;
       neuron.a = neuron.disabled ? 0 : val;
       neuron.historyA.push(neuron.a);
@@ -551,7 +566,17 @@ export class NeuralNetwork {
     targets: number[],
     applyUpdates: boolean = true
   ): { loss: number; predictions: number[] } {
-    const predictions = this.forward(inputs, true);
+    const inputLayer = this.layers[0];
+    let fullInputs = inputs;
+    if (inputLayer && inputs.length < inputLayer.size) {
+      fullInputs = new Array(inputLayer.size);
+      for (let i = 0; i < inputLayer.size; i++) {
+        fullInputs[i] = inputs[i] !== undefined && !Number.isNaN(inputs[i])
+          ? inputs[i]
+          : (inputs[i % Math.max(1, inputs.length)] ?? 0.5);
+      }
+    }
+    const predictions = this.forward(fullInputs, true);
     const outputLayer = this.layers[this.layers.length - 1];
 
     let loss = 0;
@@ -1168,8 +1193,8 @@ export function splitTrainVal(dataset: DataSample[], trainRatio: number = 0.8): 
   };
 }
 
-// Generates 17 continuous oscillating wave signals for Sensor Array Mode
-export function generateWaveData(t: number, count: number = 64): DataSample[] {
+// Generates continuous oscillating wave signals for Sensor Array Mode (supports up to 32+ inputs dynamically)
+export function generateWaveData(t: number, count: number = 64, numInputs: number = 17): DataSample[] {
   const samples: DataSample[] = [];
   const classes = [
     'Pure Sine',
@@ -1182,14 +1207,18 @@ export function generateWaveData(t: number, count: number = 64): DataSample[] {
     'Brownian Gaussian',
   ];
 
+  const actualInputs = Math.max(1, numInputs);
+
   for (let s = 0; s < count; s++) {
     const classId = s % 8;
-    const inputs: number[] = new Array(17);
+    const inputs: number[] = new Array(actualInputs);
     const timeOffset = t + s * 0.1;
 
-    for (let i = 0; i < 17; i++) {
-      const freq = 0.5 + i * 0.35;
-      const phase = (i * Math.PI) / 8.5;
+    for (let i = 0; i < actualInputs; i++) {
+      const channelBase = i % 17;
+      const bankOffset = Math.floor(i / 17);
+      const freq = 0.5 + channelBase * 0.35 + bankOffset * 0.15;
+      const phase = (channelBase * Math.PI) / 8.5 + (bankOffset * Math.PI) / 4;
 
       switch (classId) {
         case 0: // Sine
@@ -1205,7 +1234,7 @@ export function generateWaveData(t: number, count: number = 64): DataSample[] {
           inputs[i] = Math.sin(timeOffset * (freq * 1.8 + Math.sin(timeOffset * 0.2))) * 0.5 + 0.5;
           break;
         case 4: // ECG
-          const beat = (timeOffset * 2 + i * 0.2) % 3;
+          const beat = (timeOffset * 2 + channelBase * 0.2) % 3;
           inputs[i] = beat < 0.3 ? 0.95 : beat < 0.6 ? 0.05 : 0.45;
           break;
         case 5: // Chaotic

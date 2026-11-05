@@ -244,11 +244,12 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
   setAutoPauseOnConvergence: (autoPauseOnConvergence) => set({ autoPauseOnConvergence }),
 
   regenerateData: () => {
-    const { currentPresetId } = get();
+    const { currentPresetId, topology } = get();
+    const inputDim = topology[0] || 17;
     let dataset: DataSample[] = [];
     const seedOffset = Math.random() * 500;
     if (currentPresetId === 'signal_debugger') {
-      dataset = generateWaveData(seedOffset, 100);
+      dataset = generateWaveData(seedOffset, 100, inputDim);
     } else if (currentPresetId === 'dying_relu') {
       dataset = generateDyingReLUData(100);
     } else if (currentPresetId === 'vanishing_grad') {
@@ -258,6 +259,20 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
     } else {
       dataset = generateStepMathData();
     }
+
+    // Ensure all dataset samples have input vectors matching the input layer size
+    if (dataset.length > 0 && dataset[0].inputs.length < inputDim) {
+      dataset = dataset.map((s) => {
+        const padded = new Array(inputDim);
+        for (let i = 0; i < inputDim; i++) {
+          padded[i] = s.inputs[i] !== undefined
+            ? s.inputs[i]
+            : (s.inputs[i % Math.max(1, s.inputs.length)] ?? 0.5);
+        }
+        return { ...s, inputs: padded };
+      });
+    }
+
     const split = splitTrainVal(dataset, 0.8);
     set({
       currentDataset: dataset,
@@ -401,13 +416,42 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
   },
 
   setLayerNeuronCount: (layerIndex, count) => {
-    const { topology, engine, hiddenActivation, outputActivation } = get();
+    const { topology, engine, hiddenActivation, outputActivation, currentPresetId, currentDataset } = get();
     if (count < 1 || count > 32) return;
     const newTopology = [...topology];
     newTopology[layerIndex] = count;
     engine.rebuildArchitecture(newTopology, hiddenActivation, outputActivation);
     set({ topology: newTopology, selectedNeuron: null });
     get().addLog('info', `Layer ${layerIndex} scaled to ${count} neurons.`);
+
+    // If input layer (layer 0) is resized, dynamically adapt dataset to supply signals to ALL input neurons
+    if (layerIndex === 0) {
+      let newDataset: DataSample[] = [];
+      if (currentPresetId === 'signal_debugger') {
+        newDataset = generateWaveData(0, 100, count);
+      } else {
+        newDataset = currentDataset.map((sample) => {
+          const adaptedInputs = new Array(count);
+          for (let i = 0; i < count; i++) {
+            adaptedInputs[i] = sample.inputs[i] !== undefined
+              ? sample.inputs[i]
+              : (sample.inputs[i % Math.max(1, sample.inputs.length)] ?? 0.5);
+          }
+          return {
+            ...sample,
+            inputs: adaptedInputs,
+            coords: sample.coords ? [...sample.coords] : undefined,
+          };
+        });
+      }
+      const split = splitTrainVal(newDataset, 0.8);
+      set({
+        currentDataset: newDataset,
+        trainDataset: split.train,
+        valDataset: split.val,
+      });
+    }
+
     get().syncMetrics();
   },
 
