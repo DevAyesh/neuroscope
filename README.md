@@ -649,3 +649,4 @@ NeuroScope is designed as a plug-and-play laboratory tool for universities, codi
 ## 📄 License
 
 This project is licensed under the **MIT License** — feel free to use, modify, and distribute for educational, research, and commercial purposes.
+alkfnaiohuoadhioa
