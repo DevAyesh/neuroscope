@@ -45,19 +45,36 @@ export default function DecisionBoundary() {
         const ny = ((gy + 0.5) / resolution) * 3.0 - 1.5;
 
         const out = engine.predict([nx, ny]);
-        let prob = 0.5;
-        if (out.length >= 2) {
-          prob = out[1] / (out[0] + out[1] + 1e-9);
-        } else if (out.length === 1) {
-          prob = out[0];
+        if (out.length === 3) {
+          // 3-class mode: Class 0 (Red), Class 1 (Emerald), Class 2 (Cyan)
+          const p0 = out[0] ?? 0;
+          const p1 = out[1] ?? 0;
+          const p2 = out[2] ?? 0;
+          const maxP = Math.max(p0, p1, p2);
+          const alpha = Math.max(0.2, Math.min(1.0, maxP));
+          if (p0 >= p1 && p0 >= p2) {
+            ctx.fillStyle = `rgba(239, 68, 68, ${alpha})`;
+          } else if (p1 >= p0 && p1 >= p2) {
+            ctx.fillStyle = `rgba(16, 185, 129, ${alpha})`;
+          } else {
+            ctx.fillStyle = `rgba(6, 182, 212, ${alpha})`;
+          }
+        } else {
+          // 2-class mode
+          let prob = 0.5;
+          if (out.length >= 2) {
+            prob = out[1] / (out[0] + out[1] + 1e-9);
+          } else if (out.length === 1) {
+            prob = out[0];
+          }
+
+          // Color interpolation: Cyan (Class 0: prob -> 1) vs Amber (Class 1: prob -> 0)
+          const r = Math.round(245 * (1 - prob) + 6 * prob);
+          const g = Math.round(158 * (1 - prob) + 182 * prob);
+          const b = Math.round(11 * (1 - prob) + 212 * prob);
+
+          ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
         }
-
-        // Color interpolation: Cyan (Class 0: prob -> 1) vs Amber (Class 1: prob -> 0)
-        const r = Math.round(245 * (1 - prob) + 6 * prob);
-        const g = Math.round(158 * (1 - prob) + 182 * prob);
-        const b = Math.round(11 * (1 - prob) + 212 * prob);
-
-        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
         ctx.fillRect(gx * cellWidth, gy * cellHeight, cellWidth + 0.5, cellHeight + 0.5);
       }
     }
@@ -80,12 +97,30 @@ export default function DecisionBoundary() {
       const py = ((sy + 1.5) / 3.0) * height;
 
       if (px >= 0 && px <= width && py >= 0 && py <= height) {
-        // Class 0 (Cyan) has target[1] > 0.5; Class 1 (Amber) has target[0] > 0.5
-        const isCyan = (sample.targets[1] ?? sample.targets[0]) > 0.5;
         ctx.beginPath();
         ctx.arc(px, py, 3.0, 0, Math.PI * 2);
-        ctx.fillStyle = isCyan ? '#38bdf8' : '#fef08a';
-        ctx.strokeStyle = isCyan ? '#0284c7' : '#d97706';
+
+        if (sample.targets.length === 3) {
+          // 3-class samples
+          const t0 = sample.targets[0] ?? 0;
+          const t1 = sample.targets[1] ?? 0;
+          const t2 = sample.targets[2] ?? 0;
+          if (t0 >= t1 && t0 >= t2) {
+            ctx.fillStyle = '#ef4444';
+            ctx.strokeStyle = '#b91c1c';
+          } else if (t1 >= t0 && t1 >= t2) {
+            ctx.fillStyle = '#10b981';
+            ctx.strokeStyle = '#047857';
+          } else {
+            ctx.fillStyle = '#06b6d4';
+            ctx.strokeStyle = '#0e7490';
+          }
+        } else {
+          // Class 0 (Cyan) has target[1] > 0.5; Class 1 (Amber) has target[0] > 0.5
+          const isCyan = (sample.targets[1] ?? sample.targets[0]) > 0.5;
+          ctx.fillStyle = isCyan ? '#38bdf8' : '#fef08a';
+          ctx.strokeStyle = isCyan ? '#0284c7' : '#d97706';
+        }
         ctx.lineWidth = 1.0;
         ctx.fill();
         ctx.stroke();

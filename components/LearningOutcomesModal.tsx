@@ -138,7 +138,7 @@ export default function LearningOutcomesModal() {
             <GraduationCap className="w-3.5 h-3.5" />
             <span>1. CORE LEARNING OUTCOMES</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded-[2px] bg-[#1f2024] text-zinc-300 border border-[#2a2b30]">
-              6 Modules
+              7 Modules
             </span>
           </button>
 
@@ -211,7 +211,7 @@ export default function LearningOutcomesModal() {
                 <Sparkles className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
                 <div className="leading-relaxed">
                   <span className="text-zinc-100 font-semibold">First-Principles Deep Learning Curriculum:</span> Each
-                  of the 6 core outcomes below addresses a foundational concept often obscured by black-box abstractions.
+                  of the 7 core outcomes below addresses a foundational concept often obscured by black-box abstractions.
                   Click <span className="text-blue-400 font-bold">&quot;TRY IT NOW&quot;</span> on any card to load the
                   exact scenario preset or guided tour step into the live engine!
                 </div>
@@ -464,6 +464,48 @@ export default function LearningOutcomesModal() {
                       onClick={() => {
                         closeLearningGuide();
                         selectPreset('signal_debugger');
+                      }}
+                      className="flex items-center space-x-1.5 px-3 py-1.5 rounded-[2px] bg-[#25272c] hover:bg-[#2e3036] text-zinc-100 font-bold text-xs border border-[#3a3b40] transition-all"
+                    >
+                      <span>TRY IT NOW</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* 7. Multi-Class Classification & Softmax */}
+                <div className="bg-[#18191c] border border-[#2a2b30] hover:border-[#3e4048] rounded-[2px] p-4 flex flex-col justify-between transition-all group md:col-span-2">
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-[2px] bg-[#111215] text-zinc-300 border border-[#2a2b30]">
+                        Concept 07 // Categorical Cross-Entropy &amp; Simplex
+                      </span>
+                      <Layers className="w-3.5 h-3.5 text-zinc-400" />
+                    </div>
+                    <h3 className="font-bold text-sm text-zinc-100 group-hover:text-white transition-colors">
+                      7. Multi-Class Classification &amp; Softmax
+                    </h3>
+                    <div className="p-2 bg-[#111215] border border-[#2a2b30] rounded-[2px] font-mono text-[10px] text-zinc-200">
+                      <code>pᵢ = e^(zᵢ) / ∑ e^(zⱼ), L = -∑ yᵢ · log(pᵢ) | argmax(softmax(z)) = argmax(z)</code>
+                    </div>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      Binary classification separates two regions with a single boundary. Multi-class classification maps hidden representations
+                      onto a probability simplex where ∑ pᵢ = 1 using Softmax. Cross-entropy loss penalizes the KL divergence between
+                      predicted probabilities and one-hot ground-truth targets. Notice how argmax(softmax(z)) = argmax(z), meaning softmax
+                      preserves relative rank ordering while exponentiating raw logits into calibrated posterior confidences.
+                    </p>
+                    <div className="text-[10px] text-zinc-300 bg-[#1f2024] p-2 rounded-[2px] border border-[#2a2b30]">
+                      <span className="text-zinc-100 font-semibold">Key Telemetry:</span> 3-Class Spiral Decision Boundary renders an RGB
+                      continuous probability heatmap (Red, Emerald, Cyan) with 3 softmax output nodes displaying live confidences.
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-[#2a2b30] flex items-center justify-between">
+                    <span className="text-[10px] text-zinc-500">Preset: 3-Class Spiral</span>
+                    <button
+                      onClick={() => {
+                        closeLearningGuide();
+                        selectPreset('multiclass_3');
                       }}
                       className="flex items-center space-x-1.5 px-3 py-1.5 rounded-[2px] bg-[#25272c] hover:bg-[#2e3036] text-zinc-100 font-bold text-xs border border-[#3a3b40] transition-all"
                     >
