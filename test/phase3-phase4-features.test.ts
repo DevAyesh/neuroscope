@@ -73,4 +73,35 @@ if (reluDeriv !== 0) throw new Error('ReLU derivative for negative z should be 0
 if (leakyDeriv !== 0.01) throw new Error('Leaky ReLU derivative for negative z should be 0.01');
 console.log('✓ Leaky ReLU non-zero gradient confirmed (0.01).');
 
+function assert(condition: boolean, msg: string) {
+  if (!condition) throw new Error(msg);
+}
+
+// Test A: Adam optimizer convergence on XOR
+console.log('[Test A] Verifying Adam optimizer convergence on XOR...');
+const netAdam = new NeuralNetwork([2, 8, 1], 'tanh', 'sigmoid', 0.05, 'adam');
+netAdam.lossType = 'mse';
+const xorData = [
+  { inputs: [0, 0], targets: [0] },
+  { inputs: [1, 0], targets: [1] },
+  { inputs: [0, 1], targets: [1] },
+  { inputs: [1, 1], targets: [0] },
+];
+netAdam.trainStep(xorData, 1000);
+assert(netAdam.metrics.loss < 0.1, `Adam: XOR loss should converge below 0.1 (got ${netAdam.metrics.loss})`);
+assert(netAdam.adamT > 0, 'Adam: adamT step counter should be non-zero');
+assert(netAdam.synapses[0][0][0].adamM !== 0, 'Adam: first moment should be non-zero after training');
+assert(netAdam.synapses[0][0][0].adamV !== 0, 'Adam: second moment should be non-zero after training');
+console.log('✓ Adam optimizer convergence verified.');
+
+// Test B: Mini-batch SGD convergence
+console.log('[Test B] Verifying Mini-batch SGD convergence...');
+const netBatch = new NeuralNetwork([2, 8, 1], 'tanh', 'sigmoid', 0.1, 'sgd');
+netBatch.batchSize = 8;
+netBatch.lossType = 'mse';
+netBatch.trainStep(xorData, 3000);
+assert(netBatch.batchSize === 8, 'batchSize should be 8');
+assert(netBatch.metrics.loss < 0.1, `Mini-batch: XOR should converge reasonably (got ${netBatch.metrics.loss})`);
+console.log('✓ Mini-batch SGD verified.');
+
 console.log('=== ALL PHASE 3 & 4 TESTS PASSED! ===');

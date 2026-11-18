@@ -3,7 +3,7 @@
 // gradient tracking, He/Xavier initialization, SGD & Momentum, and interactive neuron killing.
 
 export type ActivationType = 'relu' | 'leaky_relu' | 'sigmoid' | 'tanh' | 'linear' | 'softmax';
-export type OptimizerType = 'sgd' | 'momentum';
+export type OptimizerType = 'sgd' | 'momentum' | 'adam';
 export type LossType = 'mse' | 'cross_entropy';
 
 export interface ActivationFunction {
@@ -103,6 +103,8 @@ export interface NeuronState {
   bias: number;
   biasGradient: number;
   biasVelocity: number;
+  biasAdamM: number;
+  biasAdamV: number;
   gradA: number; // dL/da
   gradZ: number; // dL/dz (delta)
   disabled: boolean; // Manually killed by user
@@ -122,6 +124,8 @@ export interface SynapseState {
   weightGradient: number;
   velocity: number;
   lastDelta: number;
+  adamM: number;
+  adamV: number;
 }
 
 export interface LayerState {
@@ -181,6 +185,11 @@ export class NeuralNetwork {
   public hiddenActivation: ActivationType = 'relu';
   public outputActivation: ActivationType = 'sigmoid';
   public dropoutRate: number = 0.0;
+  public adamBeta1: number = 0.9;
+  public adamBeta2: number = 0.999;
+  public adamEpsilon: number = 1e-8;
+  public adamT: number = 0;
+  public batchSize: number = 1;
   public metrics: TrainingMetrics = {
     epoch: 0,
     step: 0,
@@ -249,6 +258,8 @@ export class NeuralNetwork {
           bias: isInput ? 0 : (Math.random() - 0.5) * 0.1,
           biasGradient: 0,
           biasVelocity: 0,
+          biasAdamM: 0,
+          biasAdamV: 0,
           gradA: 0,
           gradZ: 0,
           disabled: false,
@@ -302,12 +313,15 @@ export class NeuralNetwork {
             weightGradient: 0,
             velocity: 0,
             lastDelta: 0,
+            adamM: 0,
+            adamV: 0,
           };
           totalParams += 1;
         }
       }
     }
 
+    this.adamT = 0;
     this.metrics.totalParameters = totalParams;
     this.updateNeuronDeadState();
   }
@@ -343,6 +357,8 @@ export class NeuralNetwork {
           syn.weightGradient = 0;
           syn.velocity = 0;
           syn.lastDelta = 0;
+          syn.adamM = 0;
+          syn.adamV = 0;
         }
       }
     }
@@ -353,6 +369,8 @@ export class NeuralNetwork {
         neuron.bias = 0;
         neuron.biasGradient = 0;
         neuron.biasVelocity = 0;
+        neuron.biasAdamM = 0;
+        neuron.biasAdamV = 0;
         neuron.gradA = 0;
         neuron.gradZ = 0;
         neuron.consecutiveZeroGrads = 0;
@@ -360,6 +378,7 @@ export class NeuralNetwork {
         neuron.droppedOut = false;
       }
     }
+    this.adamT = 0;
     this.metrics.epoch = 0;
     this.metrics.step = 0;
   }
@@ -714,6 +733,8 @@ export class NeuralNetwork {
     const lr = this.learningRate;
     const beta = this.momentumBeta;
     const isMomentum = this.optimizer === 'momentum';
+    const isAdam = this.optimizer === 'adam';
+    if (isAdam) this.adamT++;
 
     // Update Synapse Weights
     for (let l = 0; l < this.layers.length - 1; l++) {
@@ -730,7 +751,13 @@ export class NeuralNetwork {
           }
 
           let delta = 0;
-          if (isMomentum) {
+          if (isAdam) {
+            syn.adamM = this.adamBeta1 * syn.adamM + (1 - this.adamBeta1) * syn.weightGradient;
+            syn.adamV = this.adamBeta2 * syn.adamV + (1 - this.adamBeta2) * syn.weightGradient ** 2;
+            const mHat = syn.adamM / (1 - Math.pow(this.adamBeta1, this.adamT));
+            const vHat = syn.adamV / (1 - Math.pow(this.adamBeta2, this.adamT));
+            delta = -(lr * mHat / (Math.sqrt(vHat) + this.adamEpsilon));
+          } else if (isMomentum) {
             // v = beta * v - lr * grad
             syn.velocity = beta * syn.velocity - lr * syn.weightGradient;
             delta = syn.velocity;
@@ -754,7 +781,13 @@ export class NeuralNetwork {
         if (neuron.disabled || neuron.droppedOut) continue;
 
         let deltaB = 0;
-        if (isMomentum) {
+        if (isAdam) {
+          neuron.biasAdamM = this.adamBeta1 * neuron.biasAdamM + (1 - this.adamBeta1) * neuron.biasGradient;
+          neuron.biasAdamV = this.adamBeta2 * neuron.biasAdamV + (1 - this.adamBeta2) * neuron.biasGradient ** 2;
+          const bMHat = neuron.biasAdamM / (1 - Math.pow(this.adamBeta1, this.adamT));
+          const bVHat = neuron.biasAdamV / (1 - Math.pow(this.adamBeta2, this.adamT));
+          deltaB = -(lr * bMHat / (Math.sqrt(bVHat) + this.adamEpsilon));
+        } else if (isMomentum) {
           neuron.biasVelocity = beta * neuron.biasVelocity - lr * neuron.biasGradient;
           deltaB = neuron.biasVelocity;
         } else {
@@ -766,65 +799,128 @@ export class NeuralNetwork {
     }
   }
 
-  public trainStep(dataset: DataSample[], batchSize: number = 1): { loss: number; accuracy: number } {
+  // Gradient accumulator helpers for mini-batch SGD
+  private _accumulatedWeightGrads: number[][][] = [];
+  private _accumulatedBiasGrads: number[][] = [];
+
+  private zeroGradients(): void {
+    this._accumulatedWeightGrads = [];
+    this._accumulatedBiasGrads = [];
+    for (let l = 0; l < this.layers.length - 1; l++) {
+      this._accumulatedWeightGrads[l] = [];
+      for (let f = 0; f < this.topology[l]; f++) {
+        this._accumulatedWeightGrads[l][f] = new Array(this.topology[l + 1]).fill(0);
+      }
+    }
+    for (let l = 1; l < this.layers.length; l++) {
+      this._accumulatedBiasGrads[l] = new Array(this.layers[l].size).fill(0);
+    }
+  }
+
+  private accumulateGradients(): void {
+    for (let l = 0; l < this.layers.length - 1; l++) {
+      if (!this._accumulatedWeightGrads[l]) this._accumulatedWeightGrads[l] = [];
+      for (let f = 0; f < this.topology[l]; f++) {
+        if (!this._accumulatedWeightGrads[l][f]) this._accumulatedWeightGrads[l][f] = [];
+        for (let t = 0; t < this.topology[l + 1]; t++) {
+          this._accumulatedWeightGrads[l][f][t] =
+            (this._accumulatedWeightGrads[l][f][t] ?? 0) + this.synapses[l][f][t].weightGradient;
+        }
+      }
+    }
+    for (let l = 1; l < this.layers.length; l++) {
+      if (!this._accumulatedBiasGrads[l]) this._accumulatedBiasGrads[l] = [];
+      for (let n = 0; n < this.layers[l].size; n++) {
+        this._accumulatedBiasGrads[l][n] =
+          (this._accumulatedBiasGrads[l][n] ?? 0) + this.layers[l].neurons[n].biasGradient;
+      }
+    }
+  }
+
+  private divideGradientsBy(n: number): void {
+    if (n <= 1) return;
+    for (let l = 0; l < this.layers.length - 1; l++) {
+      for (let f = 0; f < this.topology[l]; f++) {
+        for (let t = 0; t < this.topology[l + 1]; t++) {
+          this.synapses[l][f][t].weightGradient =
+            (this._accumulatedWeightGrads[l]?.[f]?.[t] ?? 0) / n;
+        }
+      }
+    }
+    for (let l = 1; l < this.layers.length; l++) {
+      for (let ni = 0; ni < this.layers[l].size; ni++) {
+        this.layers[l].neurons[ni].biasGradient =
+          (this._accumulatedBiasGrads[l]?.[ni] ?? 0) / n;
+      }
+    }
+  }
+
+  public trainStep(dataset: DataSample[], steps: number = 1): { loss: number; accuracy: number } {
     if (dataset.length === 0) return { loss: 0, accuracy: 0 };
 
     let totalLoss = 0;
     let correct = 0;
-    const count = Math.min(dataset.length, batchSize > 0 ? batchSize : dataset.length);
+    let totalEvaluated = 0;
+    const numSteps = Math.max(1, steps);
 
-    for (let i = 0; i < count; i++) {
-      const idx = Math.floor(Math.random() * dataset.length);
-      const sample = dataset[idx];
-      const { loss, predictions } = this.backward(sample.inputs, sample.targets);
-      totalLoss += loss;
-
-      // Accuracy evaluation
-      if (sample.targets.length === 1) {
-        // Binary / Regression
-        const predBinary = predictions[0] >= 0.5 ? 1 : 0;
-        const targetBinary = sample.targets[0] >= 0.5 ? 1 : 0;
+    const evalPrediction = (predictions: number[], targets: number[]) => {
+      totalEvaluated++;
+      if (targets.length === 1) {
+        const predBinary = (predictions[0] ?? 0) >= 0.5 ? 1 : 0;
+        const targetBinary = (targets[0] ?? 0) >= 0.5 ? 1 : 0;
         if (predBinary === targetBinary) correct++;
       } else {
-        // Multi-class classification: argmax
-        let maxPredIdx = 0;
-        let maxPredVal = -Infinity;
-        let maxTargetIdx = 0;
-        let maxTargetVal = -Infinity;
-
+        let maxPredIdx = 0, maxPredVal = -Infinity, maxTargetIdx = 0, maxTargetVal = -Infinity;
         for (let k = 0; k < predictions.length; k++) {
-          if (predictions[k] > maxPredVal) {
-            maxPredVal = predictions[k];
-            maxPredIdx = k;
-          }
-          if (sample.targets[k] > maxTargetVal) {
-            maxTargetVal = sample.targets[k];
-            maxTargetIdx = k;
-          }
+          if (predictions[k] > maxPredVal) { maxPredVal = predictions[k]; maxPredIdx = k; }
+          if (targets[k] > maxTargetVal) { maxTargetVal = targets[k]; maxTargetIdx = k; }
         }
         if (maxPredIdx === maxTargetIdx) correct++;
       }
+    };
+
+    const effectiveBatchSize = Math.max(1, Math.min(this.batchSize, dataset.length));
+
+    for (let s = 0; s < numSteps; s++) {
+      if (effectiveBatchSize === 1) {
+        const idx = Math.floor(Math.random() * dataset.length);
+        const sample = dataset[idx];
+        const { loss, predictions } = this.backward(sample.inputs, sample.targets, true);
+        totalLoss += loss;
+        evalPrediction(predictions, sample.targets);
+      } else {
+        this.zeroGradients();
+        let batchLoss = 0;
+        for (let b = 0; b < effectiveBatchSize; b++) {
+          const idx = Math.floor(Math.random() * dataset.length);
+          const sample = dataset[idx];
+          const { loss, predictions } = this.backward(sample.inputs, sample.targets, false);
+          this.accumulateGradients();
+          batchLoss += loss;
+          evalPrediction(predictions, sample.targets);
+        }
+        this.divideGradientsBy(effectiveBatchSize);
+        this.applyOptimizerUpdates();
+        totalLoss += (batchLoss / effectiveBatchSize);
+      }
     }
 
-    const avgLoss = totalLoss / count;
-    const stepAcc = (correct / count) * 100;
+    const avgLoss = totalLoss / numSteps;
+    const stepAcc = totalEvaluated > 0 ? (correct / totalEvaluated) * 100 : 0;
 
-    this.metrics.step += count;
-    this.metrics.epoch += 1;
+    this.metrics.step += numSteps * effectiveBatchSize;
+    this.metrics.epoch += numSteps;
     this.metrics.loss = avgLoss;
-    
-    // For single-sample SGD, smooth accuracy with EMA so it reflects moving average performance
-    // rather than oscillating wildly between 0% and 100% on individual samples
-    if (count === 1) {
+
+    if (numSteps === 1 && effectiveBatchSize === 1) {
       this.metrics.accuracy = this.metrics.accuracy > 0
         ? this.metrics.accuracy * 0.94 + stepAcc * 0.06
         : stepAcc;
     } else {
       this.metrics.accuracy = stepAcc;
     }
-    
-    this.updateNeuronDeadState();
 
+    this.updateNeuronDeadState();
     return { loss: avgLoss, accuracy: this.metrics.accuracy };
   }
 
@@ -1021,6 +1117,63 @@ export class NeuralNetwork {
 
     return traces;
   }
+
+  public exportCheckpoint(): string {
+    return JSON.stringify(
+      {
+        version: '1.0',
+        topology: this.topology,
+        hiddenActivation: this.hiddenActivation,
+        outputActivation: this.outputActivation,
+        learningRate: this.learningRate,
+        optimizer: this.optimizer,
+        batchSize: this.batchSize,
+        epoch: this.metrics.epoch,
+        weights: this.synapses.map((layer) =>
+          layer.map((from) => from.map((syn) => syn.weight))
+        ),
+        biases: this.layers.map((layer) => layer.neurons.map((n) => n.bias)),
+      },
+      null,
+      2
+    );
+  }
+
+  public importCheckpoint(json: string): void {
+    const ckpt = JSON.parse(json) as {
+      version?: string;
+      topology: number[];
+      hiddenActivation: ActivationType;
+      outputActivation: ActivationType;
+      learningRate: number;
+      optimizer: OptimizerType;
+      batchSize?: number;
+      epoch?: number;
+      weights?: number[][][];
+      biases?: number[][];
+    };
+    this.rebuildArchitecture(ckpt.topology, ckpt.hiddenActivation, ckpt.outputActivation);
+    this.learningRate = ckpt.learningRate;
+    this.optimizer = ckpt.optimizer;
+    this.batchSize = ckpt.batchSize ?? 1;
+    this.metrics.epoch = ckpt.epoch ?? 0;
+    if (ckpt.weights) {
+      ckpt.weights.forEach((layer, li) =>
+        layer.forEach((from, fi) =>
+          from.forEach((w, ti) => {
+            if (this.synapses[li]?.[fi]?.[ti]) this.synapses[li][fi][ti].weight = w;
+          })
+        )
+      );
+    }
+    if (ckpt.biases) {
+      ckpt.biases.forEach((layerBiases, li) =>
+        layerBiases.forEach((b, ni) => {
+          if (this.layers[li]?.neurons[ni]) this.layers[li].neurons[ni].bias = b;
+        })
+      );
+    }
+  }
 }
 
 // ==========================================
@@ -1038,7 +1191,7 @@ export interface PresetScenario {
   learningRate: number;
   optimizer: OptimizerType;
   lossType: LossType;
-  datasetName: 'wave_17' | 'dying_relu' | 'vanishing_grad' | 'xor_spiral' | 'step_math';
+  datasetName: 'wave_17' | 'dying_relu' | 'vanishing_grad' | 'xor_spiral' | 'step_math' | 'spiral_3class';
   badge: string;
   badgeColor: string;
   tips: string[];
@@ -1145,6 +1298,26 @@ export const PRESET_SCENARIOS: PresetScenario[] = [
       'Observe the direct numerical correlation between the formula and canvas pulses.',
     ],
   },
+  {
+    id: 'multiclass_3',
+    title: '3-Class Softmax Spiral',
+    subtitle: 'Softmax + Cross-Entropy | 3-arm manifold',
+    description: 'Three-class spiral manifold demonstrating softmax normalization and cross-entropy loss. Watch the network carve three non-linear decision regions from random initialization.',
+    topology: [2, 16, 16, 3],
+    hiddenActivation: 'relu',
+    outputActivation: 'softmax',
+    learningRate: 0.05,
+    optimizer: 'momentum',
+    lossType: 'cross_entropy',
+    datasetName: 'spiral_3class',
+    badge: 'Softmax Classifier',
+    badgeColor: 'border-[#2a2b30] text-[#8e9299] bg-[#18191c]',
+    tips: [
+      'Watch the 32x32 decision heatmap split into 3 coloured regions (red/emerald/cyan).',
+      'Softmax ensures output probabilities always sum to 1.0 — observe the probability bars.',
+      'Compare cross-entropy loss convergence speed vs. MSE on the same architecture.',
+    ],
+  },
 ];
 
 export function formatScenarioBriefing(
@@ -1177,6 +1350,8 @@ export function formatScenarioBriefing(
       return `Classifies non-linear 2D coordinates (${inCount} inputs -> ${hiddenCountStr} -> ${outCount} classes [${outActLabel}]) with a live decision boundary heatmap, demonstrating how hidden layers warp space to separate intertwined classes.`;
     case 'step_math_xray':
       return `Step-by-step cycle on ${inCount} inputs -> ${hiddenCountStr} -> ${outCount} outputs (${outActLabel}). Slows down execution to an illuminated 5-phase cycle: (1) Input vector, (2) Weighted sum ∑w·x+b, (3) Activation function σ(z), (4) Loss calculation, and (5) Backprop gradient update.`;
+    case 'multiclass_3':
+      return `Three-class spiral manifold (${inCount} inputs -> ${hiddenCountStr} -> ${outCount} Softmax classes). Demonstrates how cross-entropy loss trains a network to partition space into ${outCount} non-linear probability regions summing to 1.0.`;
     default:
       return `${inCount} inputs -> ${hiddenCountStr} -> ${outCount} outputs (${outActLabel}). ${preset.description}`;
   }
@@ -1340,3 +1515,22 @@ export function generateStepMathData(): DataSample[] {
     { inputs: [0.3, 0.5, 0.9], targets: [1, 0], label: 'Sample Gamma' },
   ];
 }
+
+// Generates 3-class spiral data for multi-class softmax classification demo
+export function generate3ClassSpiralData(samplesPerClass: number = 60): DataSample[] {
+  const data: DataSample[] = [];
+  for (let k = 0; k < 3; k++) {
+    for (let i = 0; i < samplesPerClass; i++) {
+      const t = i / samplesPerClass;
+      const angle = 1.5 * Math.PI * t + (2 * Math.PI / 3) * k + (Math.random() - 0.5) * 0.3;
+      const r = t + 0.1;
+      const x = r * Math.cos(angle);
+      const y = r * Math.sin(angle);
+      const target = [0, 0, 0];
+      target[k] = 1;
+      data.push({ inputs: [x, y], targets: target, coords: [x, y] });
+    }
+  }
+  return data;
+}
+

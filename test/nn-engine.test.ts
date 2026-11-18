@@ -6,6 +6,7 @@ import {
   generateVanishingGradData,
   generate2DSpiralData,
   generateStepMathData,
+  generate3ClassSpiralData,
   PRESET_SCENARIOS,
 } from '../lib/nn-engine';
 
@@ -273,6 +274,9 @@ for (const preset of PRESET_SCENARIOS) {
       break;
     case 'step_math':
       dataset = generateStepMathData();
+      break;
+    case 'spiral_3class':
+      dataset = generate3ClassSpiralData(10);
       break;
   }
 

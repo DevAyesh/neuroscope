@@ -193,7 +193,7 @@ console.log('✓ Neuron Kill & Self-Healing passed.');
 // Test 5: Verifying Preset Selection & Scenario Metadata Integrity
 console.log('[Test 5] Verifying Preset Scenarios & Dropdown Model Integrity...');
 import('../lib/nn-engine').then(({ PRESET_SCENARIOS }) => {
-  assert(PRESET_SCENARIOS.length === 5, 'Should define exactly 5 preset scenarios');
+  assert(PRESET_SCENARIOS.length >= 5, 'Should define at least 5 preset scenarios');
   for (const p of PRESET_SCENARIOS) {
     assert(typeof p.id === 'string' && p.id.length > 0, `Preset ${p.id} must have non-empty id`);
     assert(typeof p.title === 'string' && p.title.length > 0, `Preset ${p.id} must have non-empty title`);
