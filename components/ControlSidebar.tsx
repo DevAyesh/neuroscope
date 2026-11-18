@@ -53,6 +53,8 @@ export default function ControlSidebar() {
     setHiddenActivation,
     setOptimizer,
     setLearningRate,
+    batchSize,
+    setBatchSize,
   } = useNetworkStore();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -330,23 +332,58 @@ export default function ControlSidebar() {
                 </div>
 
                 {/* Optimizer Type */}
-                <div className="flex items-center justify-between text-[11px] pt-1">
-                  <span className="text-zinc-400">OPTIMIZER:</span>
-                  <div className="flex space-x-1">
-                    {(['momentum', 'sgd'] as OptimizerType[]).map((opt) => (
-                      <button
-                        key={opt}
-                        onClick={() => setOptimizer(opt)}
-                        className={`px-2 py-0.5 rounded-[2px] text-[10px] uppercase border transition-colors ${
-                          optimizer === opt
-                            ? 'bg-[#25272c] border-[#3a3b40] text-zinc-100 font-bold'
-                            : 'bg-[#1f2024] border-[#2a2b30] text-zinc-400 hover:bg-[#25272c]'
-                        }`}
-                      >
-                        {opt}
-                      </button>
-                    ))}
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-zinc-400">OPTIMIZER:</span>
+                    <div className="flex space-x-1">
+                      {(['momentum', 'sgd', 'adam'] as OptimizerType[]).map((opt) => (
+                        <button
+                          key={opt}
+                          onClick={() => setOptimizer(opt)}
+                          title={opt === 'adam' ? 'Adaptive Moment Estimation — per-parameter adaptive LR with bias-corrected momentum.' : ''}
+                          className={`px-2 py-0.5 rounded-[2px] text-[10px] uppercase border transition-colors ${
+                            optimizer === opt
+                              ? 'bg-[#25272c] border-[#3a3b40] text-zinc-100 font-bold'
+                              : 'bg-[#1f2024] border-[#2a2b30] text-zinc-400 hover:bg-[#25272c]'
+                          }`}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
                   </div>
+                  {optimizer === 'adam' && (
+                    <div className="text-[9px] font-mono text-cyan-500/70 bg-[#0f141f] px-2 py-1 rounded-[2px] border border-cyan-500/20">
+                      β1=0.9 · β2=0.999 · ε=1e-8 · t={engine.adamT}
+                    </div>
+                  )}
+                </div>
+
+                {/* Batch Size */}
+                <div className="pt-1">
+                  <div className="flex items-center justify-between text-[11px] mb-1">
+                    <span className="text-zinc-400" title="1 = Online SGD (sample-by-sample). 8/16/32 = Mini-batch GD. Larger batches = smoother gradients, slower updates.">BATCH SIZE:</span>
+                    <div className="flex space-x-1">
+                      {[1, 8, 16, 32].map((size) => (
+                        <button
+                          key={size}
+                          onClick={() => setBatchSize(size)}
+                          className={`px-1.5 py-0.5 rounded-[2px] text-[10px] border transition-colors ${
+                            batchSize === size
+                              ? 'bg-[#25272c] border-[#3a3b40] text-zinc-100 font-bold'
+                              : 'bg-[#1f2024] border-[#2a2b30] text-zinc-400 hover:bg-[#25272c]'
+                          }`}
+                        >
+                          {size}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {batchSize > 1 && (
+                    <p className="text-[9px] text-zinc-500 font-mono">
+                      Gradient averaged over {batchSize} samples per update
+                    </p>
+                  )}
                 </div>
 
                 {/* Auto-pause on Convergence Toggle */}

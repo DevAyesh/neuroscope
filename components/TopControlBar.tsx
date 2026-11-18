@@ -50,6 +50,8 @@ export default function TopControlBar() {
     openLearningGuide,
     isAudioMuted,
     toggleAudio,
+    exportCheckpoint,
+    importCheckpoint,
   } = useNetworkStore();
 
   const [copied, setCopied] = useState(false);
@@ -374,12 +376,26 @@ export default function TopControlBar() {
         {/* Optimizer Toggle */}
         <div className="hidden 2xl:flex items-center space-x-1 bg-[#1f2024] px-1.5 py-1 rounded-[2px] border border-[#2a2b30] shrink-0">
           <span className="text-[10px] font-mono text-zinc-400">OPT:</span>
-          <button
-            onClick={() => setOptimizer(optimizer === 'momentum' ? 'sgd' : 'momentum')}
-            className="text-xs font-mono text-zinc-200 hover:text-white transition-colors"
-          >
-            {optimizer.toUpperCase()}
-          </button>
+          {(['sgd', 'momentum', 'adam'] as const).map((opt) => (
+            <button
+              key={opt}
+              onClick={() => setOptimizer(opt)}
+              title={
+                opt === 'adam'
+                  ? 'Adaptive Moment Estimation — per-parameter adaptive LR with bias-corrected momentum.'
+                  : opt === 'momentum'
+                  ? 'Polyak Momentum — velocity accumulation smooths gradient trajectory.'
+                  : 'Standard SGD — direct gradient step.'
+              }
+              className={`text-[10px] font-mono px-1.5 py-0.5 rounded-[2px] border transition-colors ${
+                optimizer === opt
+                  ? 'bg-[#25272c] border-[#3a3b40] text-zinc-100 font-bold'
+                  : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              {opt.toUpperCase()}
+            </button>
+          ))}
         </div>
 
         {/* Web Audio Sonification Toggle */}
@@ -399,6 +415,38 @@ export default function TopControlBar() {
           )}
           <span className="hidden sm:inline">{!isAudioMuted ? 'SYNTH ON' : 'SYNTH'}</span>
         </button>
+
+        {/* Export Checkpoint */}
+        <button
+          onClick={exportCheckpoint}
+          title="Save checkpoint JSON (download weights + epoch)"
+          className="flex items-center space-x-1 px-1.5 py-1 rounded-[2px] font-mono text-xs border border-[#2a2b30] bg-[#1f2024] text-zinc-300 hover:text-white hover:bg-[#25272c] transition-colors shrink-0"
+        >
+          <span>💾</span>
+          <span className="hidden sm:inline">EXPORT</span>
+        </button>
+
+        {/* Import Checkpoint */}
+        <label
+          title="Load checkpoint JSON (restore weights + epoch)"
+          className="flex items-center space-x-1 px-1.5 py-1 rounded-[2px] font-mono text-xs border border-[#2a2b30] bg-[#1f2024] text-zinc-300 hover:text-white hover:bg-[#25272c] transition-colors shrink-0 cursor-pointer"
+        >
+          <span>📂</span>
+          <span className="hidden sm:inline">IMPORT</span>
+          <input
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = (ev) => importCheckpoint(ev.target?.result as string);
+              reader.readAsText(file);
+              e.target.value = '';
+            }}
+          />
+        </label>
 
         {/* Share Button */}
         <button
