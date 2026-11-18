@@ -74,6 +74,64 @@ const TOUR_STEPS: StepInfo[] = [
   },
 ];
 
+const TOUR_QUIZ = [
+  {
+    question: "What do the green oscilloscope waveforms represent?",
+    options: [
+      "Loss over time",
+      "Continuous analog input signals sampled into normalized floats",
+      "Gradient magnitudes flowing backward",
+      "Dropout masks applied during training",
+    ],
+    correctIdx: 1,
+    explanation: "Each oscilloscope shows xᵢ(t) = sin(ωt + φ), quantized into a normalized float ∈ [-1,1] fed to the input layer.",
+  },
+  {
+    question: "A thick amber Bezier spline means the synapse weight is:",
+    options: [
+      "Zero — the connection is inactive",
+      "Large and positive — it amplifies the signal",
+      "Large and negative — it inverts the signal",
+      "Dead — the neuron is in ReLU necrosis",
+    ],
+    correctIdx: 1,
+    explanation: "Amber = w > 0 (excitatory). Crimson = w < 0 (inhibitory). Thickness ∝ |w| — thicker lines carry more signal energy.",
+  },
+  {
+    question: "Why can't a purely linear network classify XOR?",
+    options: [
+      "Linear networks have too few parameters",
+      "Linear networks can only form straight-line decision boundaries",
+      "XOR requires convolutional layers",
+      "Linear networks always overfit immediately",
+    ],
+    correctIdx: 1,
+    explanation: "Stacking linear layers collapses to a single affine transform W'x + b'. Non-linear activations (ReLU, Tanh) fold the input space to carve non-linear boundaries.",
+  },
+  {
+    question: "In δ_j = (Σ_k δ_k · w_jk) · f'(z_j), what does f'(z_j) represent?",
+    options: [
+      "The learning rate scaling factor",
+      "The instantaneous slope of the activation function at z_j",
+      "The loss function gradient at the output layer",
+      "The mean activation across the layer",
+    ],
+    correctIdx: 1,
+    explanation: "f'(z_j) is the derivative of the activation at the neuron's pre-activation. For dying ReLU neurons f'(z_j)=0, zeroing the entire gradient and blocking weight updates.",
+  },
+  {
+    question: "After severing a neuron, the network recovers because:",
+    options: [
+      "Dead neurons are automatically replaced by newly generated ones",
+      "Information is distributed across all synapses — surviving paths re-optimize",
+      "The loss function is recalculated from scratch after ablation",
+      "Momentum resets all velocity buffers to zero to restart learning",
+    ],
+    correctIdx: 1,
+    explanation: "Connectionist representations are distributed — no single neuron owns all the information. Gradient descent automatically compensates through surviving parallel pathways.",
+  },
+];
+
 export default function GuidedTour() {
   const {
     isTourOpen,
@@ -87,6 +145,11 @@ export default function GuidedTour() {
     triggerBackpropPulse,
     toggleNeuronDisabled,
     engine,
+    tourQuizAnswered,
+    tourQuizCorrect,
+    tourQuizSelectedIdx,
+    answerTourQuiz,
+    resetTourQuiz,
   } = useNetworkStore();
 
   const [hasKilledNeuron, setHasKilledNeuron] = useState(false);
@@ -110,14 +173,16 @@ export default function GuidedTour() {
       if (e.key === 'Escape') {
         closeTour();
       } else if (e.key === 'ArrowRight') {
-        nextTourStep();
+        if (tourQuizAnswered && tourQuizCorrect) {
+          nextTourStep();
+        }
       } else if (e.key === 'ArrowLeft') {
         prevTourStep();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isTourOpen, closeTour, nextTourStep, prevTourStep]);
+  }, [isTourOpen, closeTour, nextTourStep, prevTourStep, tourQuizAnswered, tourQuizCorrect]);
 
   if (!isTourOpen) return null;
 
@@ -329,6 +394,84 @@ export default function GuidedTour() {
           </div>
         )}
 
+        {/* Step Knowledge Check Quiz */}
+        {TOUR_QUIZ[tourStep] && (
+          <div className="bg-[#111215] border border-[#2a2b30] rounded-[2px] p-3 space-y-2.5 font-mono">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-cyan-400 tracking-wider uppercase flex items-center space-x-1">
+                <span>QUIZ CHECKPOINT</span>
+              </span>
+              {tourQuizAnswered && (
+                <span
+                  className={`text-[9px] px-1.5 py-0.5 rounded-[2px] font-bold ${
+                    tourQuizCorrect
+                      ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/40'
+                      : 'bg-red-950 text-red-400 border border-red-500/40'
+                  }`}
+                >
+                  {tourQuizCorrect ? 'CORRECT ✓' : 'INCORRECT ✗'}
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-zinc-200 font-medium leading-snug">
+              {TOUR_QUIZ[tourStep].question}
+            </p>
+
+            <div className="grid grid-cols-1 gap-1.5">
+              {TOUR_QUIZ[tourStep].options.map((option, idx) => {
+                const isSelected = tourQuizSelectedIdx === idx;
+                let btnStyle = 'bg-[#18191c] border-[#2a2b30] text-zinc-300 hover:border-zinc-500 hover:text-white';
+                if (tourQuizAnswered) {
+                  if (isSelected) {
+                    btnStyle = tourQuizCorrect
+                      ? 'bg-emerald-900/30 border-emerald-500 text-emerald-300 font-bold'
+                      : 'bg-red-900/30 border-red-500 text-red-300 font-bold';
+                  } else if (tourQuizCorrect && idx === TOUR_QUIZ[tourStep].correctIdx) {
+                    btnStyle = 'bg-[#18191c] border-emerald-500/40 text-emerald-400';
+                  } else {
+                    btnStyle = 'bg-[#141518] border-[#222328] text-zinc-600 opacity-60';
+                  }
+                }
+
+                return (
+                  <button
+                    key={idx}
+                    disabled={tourQuizAnswered && tourQuizCorrect}
+                    onClick={() => answerTourQuiz(idx)}
+                    className={`text-left px-2.5 py-1.5 rounded-[2px] border text-[11px] transition-all flex items-start space-x-2 ${btnStyle}`}
+                  >
+                    <span className="opacity-60 text-[10px] mt-0.5 shrink-0">[{String.fromCharCode(65 + idx)}]</span>
+                    <span className="leading-snug">{option}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {tourQuizAnswered && (
+              <div
+                className={`p-2 rounded-[2px] text-[10px] leading-relaxed border ${
+                  tourQuizCorrect
+                    ? 'bg-emerald-950/40 border-emerald-800/50 text-emerald-300'
+                    : 'bg-red-950/40 border-red-800/50 text-amber-300'
+                }`}
+              >
+                <div className="flex items-start justify-between space-x-2">
+                  <span>{TOUR_QUIZ[tourStep].explanation}</span>
+                  {!tourQuizCorrect && (
+                    <button
+                      onClick={resetTourQuiz}
+                      className="shrink-0 px-2 py-0.5 rounded-[2px] bg-red-900/50 hover:bg-red-800/60 text-red-200 border border-red-700/50 font-bold text-[9px] uppercase tracking-wider transition-colors"
+                    >
+                      Try Again
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Card Footer: Step Dots & Navigation */}
         <div className="flex items-center justify-between pt-2 border-t border-[#2a2b30]">
           {/* Step Dots */}
@@ -361,16 +504,36 @@ export default function GuidedTour() {
 
             {isLastStep ? (
               <button
+                disabled={!tourQuizAnswered || !tourQuizCorrect}
                 onClick={closeTour}
-                className="px-3.5 py-1 rounded-[2px] bg-[#3b82f6] hover:bg-[#2563eb] text-white text-xs font-semibold flex items-center space-x-1 transition-colors"
+                className={`px-3.5 py-1 rounded-[2px] text-xs font-semibold flex items-center space-x-1 transition-colors ${
+                  !tourQuizAnswered || !tourQuizCorrect
+                    ? 'bg-[#2a2b30] text-zinc-600 cursor-not-allowed border border-[#3a3b40]'
+                    : 'bg-[#3b82f6] hover:bg-[#2563eb] text-white'
+                }`}
+                title={
+                  !tourQuizAnswered || !tourQuizCorrect
+                    ? 'Complete the quiz question correctly to finish'
+                    : 'Complete Guided Tour'
+                }
               >
                 <span>COMPLETE</span>
                 <CheckCircle2 className="w-3.5 h-3.5" />
               </button>
             ) : (
               <button
+                disabled={!tourQuizAnswered || !tourQuizCorrect}
                 onClick={nextTourStep}
-                className="px-3.5 py-1 rounded-[2px] bg-[#3b82f6] hover:bg-[#2563eb] text-white text-xs font-semibold flex items-center space-x-1 transition-colors"
+                className={`px-3.5 py-1 rounded-[2px] text-xs font-semibold flex items-center space-x-1 transition-colors ${
+                  !tourQuizAnswered || !tourQuizCorrect
+                    ? 'bg-[#2a2b30] text-zinc-600 cursor-not-allowed border border-[#3a3b40]'
+                    : 'bg-[#3b82f6] hover:bg-[#2563eb] text-white'
+                }`}
+                title={
+                  !tourQuizAnswered || !tourQuizCorrect
+                    ? 'Answer the quiz correctly to unlock the next step'
+                    : 'Proceed to Next Step'
+                }
               >
                 <span>NEXT</span>
                 <ChevronRight className="w-3.5 h-3.5" />

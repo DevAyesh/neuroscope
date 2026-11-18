@@ -98,6 +98,7 @@ export default function NetworkCanvas() {
   const [fps, setFps] = useState(60);
   const [zoomDisplay, setZoomDisplay] = useState(100);
   const [legendOpen, setLegendOpen] = useState(false);
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
   const nodeCoordsRef = useRef<NodeCoord[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const lastSyncTimeRef = useRef(0);
@@ -1040,6 +1041,7 @@ export default function NetworkCanvas() {
     if (transformRef.current.isDragging) {
       transformRef.current.panX = e.clientX - transformRef.current.dragStartX;
       transformRef.current.panY = e.clientY - transformRef.current.dragStartY;
+      setTooltip(null);
       return;
     }
 
@@ -1069,6 +1071,7 @@ export default function NetworkCanvas() {
       if (hoveredNeuron !== null) {
         setHoveredNeuron(null);
       }
+      setTooltip(null);
       return;
     }
 
@@ -1095,10 +1098,142 @@ export default function NetworkCanvas() {
         setHoveredNeuron(null);
       }
     }
+
+    // Contextual Tooltip Overlay Hit-Testing (Priority order: 1. Synapse -> 2. Forward particle -> 3. Backprop particle -> 4. Dead ReLU -> 5. Ablated)
+    let newTooltip: { x: number; y: number; text: string } | null = null;
+    const { panX, panY, zoom } = transformRef.current;
+
+    const coordMap: NodeCoord[][] = [];
+    for (let i = 0; i < nodeCoordsRef.current.length; i++) {
+      const c = nodeCoordsRef.current[i];
+      if (!coordMap[c.layerIndex]) coordMap[c.layerIndex] = [];
+      coordMap[c.layerIndex][c.neuronIndex] = c;
+    }
+
+    // 1. Proximity to synapse midpoint (t=0.5, within 10px)
+    if (!newTooltip && engine.synapses) {
+      outerSyn: for (let l = 0; l < engine.synapses.length; l++) {
+        const layerSyn = engine.synapses[l];
+        if (!layerSyn) continue;
+        for (let f = 0; f < layerSyn.length; f++) {
+          const fromNode = coordMap[l]?.[f];
+          if (!fromNode) continue;
+          for (let t = 0; t < layerSyn[f].length; t++) {
+            const toNode = coordMap[l + 1]?.[t];
+            if (!toNode) continue;
+            const syn = layerSyn[f][t];
+            if (!syn) continue;
+            const midSx = ((fromNode.x + toNode.x) / 2) * zoom + panX;
+            const midSy = ((fromNode.y + toNode.y) / 2) * zoom + panY;
+            if (Math.hypot(mouseX - midSx, mouseY - midSy) <= 10) {
+              newTooltip = {
+                x: mouseX + 12,
+                y: mouseY - 8,
+                text: `w = ${syn.weight.toFixed(4)} | ∇w = ${syn.weightGradient.toExponential(3)}`,
+              };
+              break outerSyn;
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Proximity to a forward particle (within 8px)
+    if (!newTooltip && showParticles) {
+      for (let i = 0; i < particlesRef.current.length; i++) {
+        const p = particlesRef.current[i];
+        if (p.isBackprop) continue;
+        const fromNode = coordMap[p.fromLayer]?.[p.fromIndex];
+        const toNode = coordMap[p.toLayer]?.[p.toIndex];
+        if (!fromNode || !toNode) continue;
+        const px = fromNode.x + (toNode.x - fromNode.x) * p.t;
+        const py = fromNode.y + (toNode.y - fromNode.y) * p.t;
+        const pSx = px * zoom + panX;
+        const pSy = py * zoom + panY;
+        if (Math.hypot(mouseX - pSx, mouseY - pSy) <= 8) {
+          newTooltip = {
+            x: mouseX + 12,
+            y: mouseY - 8,
+            text: 'Forward pulse: aᵢ · wᵢⱼ — activation signal propagating forward',
+          };
+          break;
+        }
+      }
+    }
+
+    // 3. Proximity to a backprop particle (within 8px)
+    if (!newTooltip && showParticles) {
+      for (let i = 0; i < particlesRef.current.length; i++) {
+        const p = particlesRef.current[i];
+        if (!p.isBackprop) continue;
+        const fromNode = coordMap[p.fromLayer]?.[p.fromIndex];
+        const toNode = coordMap[p.toLayer]?.[p.toIndex];
+        if (!fromNode || !toNode) continue;
+        const px = fromNode.x + (toNode.x - fromNode.x) * p.t;
+        const py = fromNode.y + (toNode.y - fromNode.y) * p.t;
+        const pSx = px * zoom + panX;
+        const pSy = py * zoom + panY;
+        if (Math.hypot(mouseX - pSx, mouseY - pSy) <= 8) {
+          newTooltip = {
+            x: mouseX + 12,
+            y: mouseY - 8,
+            text: 'Backprop error: δⱼ = ∂L/∂zⱼ — gradient flowing backward via chain rule',
+          };
+          break;
+        }
+      }
+    }
+
+    // 4. Proximity to † glyph (dead neuron marker, within 12px of neuron centre)
+    if (!newTooltip) {
+      for (let i = 0; i < nodeCoordsRef.current.length; i++) {
+        const coord = nodeCoordsRef.current[i];
+        const neuron = engine.layers[coord.layerIndex]?.neurons[coord.neuronIndex];
+        if (neuron?.isDead) {
+          const nSx = coord.x * zoom + panX;
+          const nSy = coord.y * zoom + panY;
+          if (Math.hypot(mouseX - nSx, mouseY - nSy) <= 12) {
+            newTooltip = {
+              x: mouseX + 12,
+              y: mouseY - 8,
+              text: "DEAD NEURON: ReLU z < 0 → f'(z) = 0 → Δw = 0 forever",
+            };
+            break;
+          }
+        }
+      }
+    }
+
+    // 5. Proximity to X glyph (ablated neuron, within 12px)
+    if (!newTooltip) {
+      for (let i = 0; i < nodeCoordsRef.current.length; i++) {
+        const coord = nodeCoordsRef.current[i];
+        const neuron = engine.layers[coord.layerIndex]?.neurons[coord.neuronIndex];
+        if (neuron?.disabled) {
+          const nSx = coord.x * zoom + panX;
+          const nSy = coord.y * zoom + panY;
+          if (Math.hypot(mouseX - nSx, mouseY - nSy) <= 12) {
+            newTooltip = {
+              x: mouseX + 12,
+              y: mouseY - 8,
+              text: 'ABLATED: Click again to revive. Loss spike = distributed compensation.',
+            };
+            break;
+          }
+        }
+      }
+    }
+
+    setTooltip(newTooltip);
   };
 
   const handleMouseUp = () => {
     transformRef.current.isDragging = false;
+  };
+
+  const handleMouseLeave = () => {
+    transformRef.current.isDragging = false;
+    setTooltip(null);
   };
 
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1189,11 +1324,23 @@ export default function NetworkCanvas() {
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
         onClick={handleClick}
         onWheel={handleWheel}
         className="w-full h-full block cursor-grab active:cursor-grabbing"
       />
+
+      {/* Feature 7 Canvas Tooltip Overlay */}
+      {tooltip && (
+        <div
+          className="absolute pointer-events-none z-50 bg-[#0f141f] border border-cyan-500/40
+                     text-cyan-300 text-[10px] font-mono px-2 py-1 rounded max-w-[240px]
+                     leading-snug shadow-lg shadow-black/60"
+          style={{ left: tooltip.x, top: tooltip.y }}
+        >
+          {tooltip.text}
+        </div>
+      )}
 
       {/* Floating Top-Left HUD (Hardware/Kernel Metrics) - Hidden during Guided Tour */}
       {!isTourOpen && (
