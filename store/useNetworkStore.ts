@@ -12,6 +12,7 @@ import {
   generateVanishingGradData,
   generate2DSpiralData,
   generateStepMathData,
+  generate3ClassSpiralData,
   DataSample,
   splitTrainVal,
   formatLoss,
@@ -35,6 +36,7 @@ export interface NetworkStoreState {
   optimizer: OptimizerType;
   lossType: LossType;
   dropoutRate: number;
+  batchSize: number;
 
   // Runtime Controls
   isPlaying: boolean;
@@ -96,6 +98,7 @@ export interface NetworkStoreState {
   setHiddenActivation: (act: ActivationType) => void;
   setOptimizer: (opt: OptimizerType) => void;
   setDropoutRate: (rate: number) => void;
+  setBatchSize: (size: number) => void;
   setSelectedNeuron: (neuron: { layerIndex: number; neuronIndex: number } | null) => void;
   setHoveredNeuron: (neuron: { layerIndex: number; neuronIndex: number } | null) => void;
   toggleNeuronDisabled: (layerIndex: number, neuronIndex: number) => void;
@@ -118,6 +121,8 @@ export interface NetworkStoreState {
   addLog: (level: TerminalLogEntry['level'], message: string) => void;
   getShareableUrl: () => string;
   loadStateFromUrl: (searchParams: URLSearchParams) => void;
+  exportCheckpoint: () => void;
+  importCheckpoint: (json: string) => void;
 
   // Web Audio Sonification
   isAudioMuted: boolean;
@@ -142,11 +147,16 @@ export interface NetworkStoreState {
     title?: string;
   } | null;
   backpropPulseCount: number;
+  tourQuizAnswered: boolean;
+  tourQuizCorrect: boolean;
+  tourQuizSelectedIdx: number | null;
   startTour: (initialStep?: number) => void;
   closeTour: () => void;
   nextTourStep: () => void;
   prevTourStep: () => void;
   setTourStep: (step: number) => void;
+  answerTourQuiz: (idx: number) => void;
+  resetTourQuiz: () => void;
   setSpotlightTarget: (target: { x: number; y: number; width: number; height: number; title?: string } | null) => void;
   setSecondarySpotlightTarget: (target: { x: number; y: number; width: number; height: number; title?: string } | null) => void;
   triggerBackpropPulse: () => void;
@@ -183,6 +193,7 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
   optimizer: defaultPreset.optimizer,
   lossType: defaultPreset.lossType,
   dropoutRate: 0.0,
+  batchSize: 1,
 
   isPlaying: true,
   trainingSpeed: 1,
@@ -199,6 +210,9 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
   spotlightTarget: null,
   secondarySpotlightTarget: null,
   backpropPulseCount: 0,
+  tourQuizAnswered: false,
+  tourQuizCorrect: false,
+  tourQuizSelectedIdx: null,
 
   selectedNeuron: null,
   hoveredNeuron: null,
@@ -256,6 +270,8 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
       dataset = generateVanishingGradData(100);
     } else if (currentPresetId === '2d_classifier') {
       dataset = generate2DSpiralData(75);
+    } else if (currentPresetId === 'multiclass_3') {
+      dataset = generate3ClassSpiralData(60);
     } else {
       dataset = generateStepMathData();
     }
@@ -332,6 +348,13 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
     engine.dropoutRate = rate;
     set({ dropoutRate: rate });
     get().addLog('info', `Dropout rate set to ${(rate * 100).toFixed(0)}%`);
+  },
+
+  setBatchSize: (size) => {
+    const { engine } = get();
+    engine.batchSize = size;
+    set({ batchSize: size });
+    get().addLog('info', `Batch size set to ${size}. Gradient averaged over ${size} samples per update.`);
   },
 
   setSelectedNeuron: (neuron) => {
@@ -523,6 +546,9 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
       case 'step_math':
         dataset = generateStepMathData();
         break;
+      case 'spiral_3class':
+        dataset = generate3ClassSpiralData(60);
+        break;
     }
 
     const split = splitTrainVal(dataset, 0.8);
@@ -637,7 +663,9 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
 
     set((state) => {
       const newHistory = [...state.lossHistory];
-      if (newHistory.length === 0 || engine.metrics.epoch > (newHistory[newHistory.length - 1]?.epoch ?? 0)) {
+      const lastEpoch = newHistory[newHistory.length - 1]?.epoch ?? -1;
+      const shouldRecord = newHistory.length < 500 || engine.metrics.epoch % 5 === 0;
+      if (shouldRecord && engine.metrics.epoch > lastEpoch) {
         newHistory.push({
           epoch: engine.metrics.epoch,
           loss: engine.metrics.loss,
@@ -645,7 +673,7 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
           valLoss: valMetrics.loss,
           valAccuracy: valMetrics.accuracy,
         });
-        if (newHistory.length > 100) newHistory.shift();
+        if (newHistory.length > 2000) newHistory.splice(0, newHistory.length - 2000);
       }
 
       return {
@@ -690,6 +718,39 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
     params.set('lr', learningRate.toString());
     params.set('opt', optimizer);
     return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+  },
+
+  exportCheckpoint: () => {
+    const { engine } = get();
+    const json = engine.exportCheckpoint();
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `neuroscope-epoch${engine.metrics.epoch}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    get().addLog('success', `Checkpoint saved: epoch ${engine.metrics.epoch}, ${engine.metrics.totalParameters} params.`);
+  },
+
+  importCheckpoint: (json: string) => {
+    const { engine } = get();
+    try {
+      engine.importCheckpoint(json);
+      get().syncMetrics();
+      set({
+        topology: [...engine.topology],
+        hiddenActivation: engine.hiddenActivation,
+        outputActivation: engine.outputActivation,
+        learningRate: engine.learningRate,
+        optimizer: engine.optimizer as 'sgd' | 'momentum' | 'adam',
+        batchSize: engine.batchSize ?? 1,
+        epoch: engine.metrics.epoch,
+      });
+      get().addLog('success', `Checkpoint loaded. Resumed from epoch ${engine.metrics.epoch}.`);
+    } catch (e) {
+      get().addLog('warn', `Checkpoint import failed: ${(e as Error).message}`);
+    }
   },
 
   loadStateFromUrl: (searchParams) => {
@@ -790,6 +851,7 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
 
   setTourStep: (step) => {
     const clamped = Math.max(0, Math.min(4, step));
+    get().resetTourQuiz();
     set({ tourStep: clamped });
 
     if (clamped === 0) {
@@ -814,6 +876,17 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
       get().setSelectedNeuron(null);
       set({ secondarySpotlightTarget: null });
     }
+  },
+
+  answerTourQuiz: (idx) => {
+    const CORRECT_ANSWERS = [1, 1, 1, 1, 1];
+    const { tourStep } = get();
+    const correct = idx === CORRECT_ANSWERS[tourStep];
+    set({ tourQuizAnswered: true, tourQuizCorrect: correct, tourQuizSelectedIdx: idx });
+  },
+
+  resetTourQuiz: () => {
+    set({ tourQuizAnswered: false, tourQuizCorrect: false, tourQuizSelectedIdx: null });
   },
 
   setSpotlightTarget: (target) => set({ spotlightTarget: target }),
