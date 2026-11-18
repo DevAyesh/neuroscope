@@ -7,12 +7,19 @@ import { Activity } from 'lucide-react';
 
 export default function LossOscilloscope() {
   const { lossHistory, currentLoss, currentAccuracy, valLoss, valAccuracy, epoch, step } = useNetworkStore();
+  const [viewWindow, setViewWindow] = useState<'full' | 'last100'>('last100');
   const [isLogScale, setIsLogScale] = useState(false);
   const [isZeroBaseline, setIsZeroBaseline] = useState(true);
   const [showLoss, setShowLoss] = useState(true);
   const [showAcc, setShowAcc] = useState(true);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const svgContainerRef = useRef<HTMLDivElement>(null);
+
+  const displayedHistory = viewWindow === 'full'
+    ? (lossHistory.length > 300
+        ? lossHistory.filter((_, i) => i % Math.ceil(lossHistory.length / 300) === 0)
+        : lossHistory)
+    : lossHistory.slice(-100);
 
   const viewBoxW = 800;
   const viewBoxH = 220;
@@ -31,10 +38,10 @@ export default function LossOscilloscope() {
 
   let lossTop = 1.0;
   let lossBottom = 0.0;
-  const hasData = lossHistory.length > 1;
+  const hasData = displayedHistory.length > 1;
 
   if (hasData) {
-    const allLosses = lossHistory.flatMap((h) => [h.loss, h.valLoss ?? h.loss]);
+    const allLosses = displayedHistory.flatMap((h) => [h.loss, h.valLoss ?? h.loss]);
     const maxLossRaw = Math.max(0.01, ...allLosses);
     const minLossRaw = Math.max(1e-6, Math.min(...allLosses));
 
@@ -66,36 +73,36 @@ export default function LossOscilloscope() {
       return (padTop + plotH) - norm * plotH;
     };
 
-    trainLossPoints = lossHistory
+    trainLossPoints = displayedHistory
       .map((h, i) => {
-        const x = padLeft + (i / (lossHistory.length - 1)) * plotW;
+        const x = padLeft + (i / (displayedHistory.length - 1)) * plotW;
         const y = calcLossY(h.loss);
         return `${x.toFixed(1)},${y.toFixed(1)}`;
       })
       .join(' ');
 
-    valLossPoints = lossHistory
+    valLossPoints = displayedHistory
       .map((h, i) => {
-        const x = padLeft + (i / (lossHistory.length - 1)) * plotW;
+        const x = padLeft + (i / (displayedHistory.length - 1)) * plotW;
         const y = calcLossY(h.valLoss ?? h.loss);
         return `${x.toFixed(1)},${y.toFixed(1)}`;
       })
       .join(' ');
 
     // 5-point moving average smoothing on accuracy points to prevent dense barcode artifacts
-    const smoothedTrainAcc = lossHistory.map((_, i) => {
-      const window = lossHistory.slice(Math.max(0, i - 2), Math.min(lossHistory.length, i + 3));
+    const smoothedTrainAcc = displayedHistory.map((_, i) => {
+      const window = displayedHistory.slice(Math.max(0, i - 2), Math.min(displayedHistory.length, i + 3));
       return window.reduce((sum, h) => sum + (h.accuracy || 0), 0) / window.length;
     });
 
-    const smoothedValAcc = lossHistory.map((_, i) => {
-      const window = lossHistory.slice(Math.max(0, i - 2), Math.min(lossHistory.length, i + 3));
+    const smoothedValAcc = displayedHistory.map((_, i) => {
+      const window = displayedHistory.slice(Math.max(0, i - 2), Math.min(displayedHistory.length, i + 3));
       return window.reduce((sum, h) => sum + (h.valAccuracy ?? h.accuracy ?? 0), 0) / window.length;
     });
 
     trainAccPoints = smoothedTrainAcc
       .map((acc, i) => {
-        const x = padLeft + (i / (lossHistory.length - 1)) * plotW;
+        const x = padLeft + (i / (displayedHistory.length - 1)) * plotW;
         const y = calcAccY(acc);
         return `${x.toFixed(1)},${y.toFixed(1)}`;
       })
@@ -103,7 +110,7 @@ export default function LossOscilloscope() {
 
     valAccPoints = smoothedValAcc
       .map((acc, i) => {
-        const x = padLeft + (i / (lossHistory.length - 1)) * plotW;
+        const x = padLeft + (i / (displayedHistory.length - 1)) * plotW;
         const y = calcAccY(acc);
         return `${x.toFixed(1)},${y.toFixed(1)}`;
       })
@@ -130,15 +137,15 @@ export default function LossOscilloscope() {
     const x = padLeft + frac * plotW;
     let epochLabel = '';
     if (hasData) {
-      const idx = Math.min(lossHistory.length - 1, Math.round(frac * (lossHistory.length - 1)));
-      epochLabel = `E${lossHistory[idx]?.epoch ?? 0}`;
+      const idx = Math.min(displayedHistory.length - 1, Math.round(frac * (displayedHistory.length - 1)));
+      epochLabel = `E${displayedHistory[idx]?.epoch ?? 0}`;
     }
     return { x, epochLabel, frac };
   });
 
   // Hover data calculation
-  const hoveredPoint = hoverIndex !== null && lossHistory[hoverIndex] ? lossHistory[hoverIndex] : null;
-  const hoverX = hoveredPoint && hasData ? padLeft + (hoverIndex! / (lossHistory.length - 1)) * plotW : null;
+  const hoveredPoint = hoverIndex !== null && displayedHistory[hoverIndex] ? displayedHistory[hoverIndex] : null;
+  const hoverX = hoveredPoint && hasData ? padLeft + (hoverIndex! / (displayedHistory.length - 1)) * plotW : null;
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!hasData || !svgContainerRef.current) return;
@@ -149,8 +156,8 @@ export default function LossOscilloscope() {
     const plotWPx = plotW * scaleX;
 
     const frac = (mouseX - padLeftPx) / plotWPx;
-    const idx = Math.round(frac * (lossHistory.length - 1));
-    if (idx >= 0 && idx < lossHistory.length) {
+    const idx = Math.round(frac * (displayedHistory.length - 1));
+    if (idx >= 0 && idx < displayedHistory.length) {
       setHoverIndex(idx);
     } else {
       setHoverIndex(null);
@@ -225,6 +232,32 @@ export default function LossOscilloscope() {
               {isZeroBaseline ? '0-BASE' : 'ZOOM'}
             </button>
           )}
+
+          {/* History Window Toggle */}
+          <div className="flex items-center rounded-[2px] border border-[#2a2b30] bg-[#111215] p-0.5">
+            <button
+              onClick={() => setViewWindow('full')}
+              className={`px-1.5 py-0.5 rounded-[2px] text-[9px] font-bold transition-colors ${
+                viewWindow === 'full'
+                  ? 'bg-[#25272c] text-cyan-300 border border-cyan-500/50'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+              title="Show entire loss history"
+            >
+              FULL
+            </button>
+            <button
+              onClick={() => setViewWindow('last100')}
+              className={`px-1.5 py-0.5 rounded-[2px] text-[9px] font-bold transition-colors ${
+                viewWindow === 'last100'
+                  ? 'bg-[#25272c] text-cyan-300 border border-cyan-500/50'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+              title="Show last 100 recorded epochs"
+            >
+              LAST 100
+            </button>
+          </div>
 
           {/* Live Values */}
           {showLoss && (
@@ -476,8 +509,13 @@ export default function LossOscilloscope() {
 
       {/* Epoch Footer Bar */}
       <div className="flex items-center justify-between mt-1 text-[10px] text-zinc-400 shrink-0">
+        <span>
+          WINDOW:{' '}
+          <span className="text-zinc-200">
+            Epoch {displayedHistory[0]?.epoch ?? 0} — {displayedHistory[displayedHistory.length - 1]?.epoch ?? 0}
+          </span>
+        </span>
         <span>EPOCH: {epoch.toLocaleString()}</span>
-        <span>STEPS: {step.toLocaleString()}</span>
         <span>SAMPLES: {lossHistory.length}</span>
         <span>
           MODE:{' '}
