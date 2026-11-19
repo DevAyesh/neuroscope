@@ -9,6 +9,7 @@ import NeuronInspector from '@/components/NeuronInspector';
 import DiagnosticsDrawer from '@/components/DiagnosticsDrawer';
 import GuidedTour from '@/components/GuidedTour';
 import LearningOutcomesModal from '@/components/LearningOutcomesModal';
+import { WelcomeOverlay } from '@/components/WelcomeOverlay';
 import { useNetworkStore } from '@/store/useNetworkStore';
 
 function UrlSyncWrapper() {
@@ -53,6 +54,9 @@ export default function Home() {
 
       {/* Learning Guide & Outcomes Modal */}
       <LearningOutcomesModal />
+
+      {/* First-Visit Welcome & Persistent Help Overlay */}
+      <WelcomeOverlay />
 
       {/* 1. Top IDE Control Bar */}
       <TopControlBar />

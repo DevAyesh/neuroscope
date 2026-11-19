@@ -55,6 +55,8 @@ export default function ControlSidebar() {
     setLearningRate,
     batchSize,
     setBatchSize,
+    uiMode,
+    setUiMode,
   } = useNetworkStore();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -111,6 +113,27 @@ export default function ControlSidebar() {
           {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
       </div>
+
+      {!isCollapsed && (
+        <div className="flex items-center justify-between px-3 py-2 border-b border-[#2a2b30] bg-[#141518]">
+          <span className="text-zinc-500 font-mono text-[10px] font-semibold">MODE:</span>
+          <div className="flex items-center space-x-1">
+            {(['beginner', 'expert'] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setUiMode(m)}
+                className={`px-2 py-0.5 text-[10px] font-mono rounded-[2px] border transition-colors ${
+                  uiMode === m
+                    ? 'bg-cyan-700 border-cyan-500 text-white font-bold'
+                    : 'bg-[#1f2024] border-[#2a2b30] text-zinc-400 hover:border-slate-500 hover:text-zinc-200'
+                }`}
+              >
+                {m.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {!isCollapsed && (
         <div className="flex-1 overflow-y-auto p-3 space-y-4 text-xs">

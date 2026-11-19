@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 export default function DiagnosticsDrawer() {
-  const { epoch, currentLoss, currentAccuracy, valLoss, valAccuracy, lossHistory, currentPresetId } = useNetworkStore();
+  const { epoch, currentLoss, currentAccuracy, valLoss, valAccuracy, lossHistory, currentPresetId, uiMode } = useNetworkStore();
   // Expanded by default per Phase 3 Item 10
   const [isOpen, setIsOpen] = useState(true);
   const [activeDeckTab, setActiveDeckTab] = useState<'all' | 'chart' | 'boundary' | 'histograms' | 'terminal'>('all');
@@ -222,12 +222,23 @@ export default function DiagnosticsDrawer() {
               : 'grid grid-cols-1 md:grid-cols-12 gap-2 sm:gap-2.5 overflow-hidden'
           }`}
         >
+          {/* Beginner Mode Tip Banner (Fix 4) */}
+          {uiMode === 'beginner' && (
+            <div className="md:col-span-12 text-amber-400 font-mono text-[10px] px-3 py-1.5 bg-amber-900/20 border border-amber-700/30 rounded flex items-center justify-between shrink-0">
+              <span>💡 TIP: Switch to EXPERT mode in the left sidebar to unlock gradient histograms and telemetry logs.</span>
+            </div>
+          )}
+
           {/* Section 1: Loss & Accuracy Plot (Larger chart by default, Requirement 10) */}
           {(activeDeckTab === 'all' || activeDeckTab === 'chart') && (
             <div
               className={
                 activeDeckTab === 'chart'
                   ? 'w-full h-full flex flex-col min-h-0'
+                  : uiMode === 'beginner'
+                  ? is2DMode || isMathMode
+                    ? 'md:col-span-6 lg:col-span-8 h-full min-h-0'
+                    : 'md:col-span-12 h-full min-h-0'
                   : is2DMode
                   ? 'md:col-span-6 lg:col-span-3 h-full min-h-0'
                   : isMathMode
@@ -245,6 +256,8 @@ export default function DiagnosticsDrawer() {
               className={
                 activeDeckTab === 'boundary'
                   ? 'w-full h-full flex flex-col min-h-0'
+                  : uiMode === 'beginner'
+                  ? 'md:col-span-6 lg:col-span-4 h-full min-h-0'
                   : 'md:col-span-6 lg:col-span-3 h-full min-h-0'
               }
             >
@@ -253,13 +266,19 @@ export default function DiagnosticsDrawer() {
           )}
 
           {activeDeckTab === 'all' && isMathMode && (
-            <div className="md:col-span-6 lg:col-span-4 h-full min-h-0">
+            <div
+              className={
+                uiMode === 'beginner'
+                  ? 'md:col-span-6 lg:col-span-4 h-full min-h-0'
+                  : 'md:col-span-6 lg:col-span-4 h-full min-h-0'
+              }
+            >
               <StepMathXRay />
             </div>
           )}
 
           {/* Section 3: Layer Histograms (Weights & Gradients, with Dead ReLU zero bars, Requirement 15) */}
-          {(activeDeckTab === 'all' || activeDeckTab === 'histograms') && (
+          {uiMode === 'expert' && (activeDeckTab === 'all' || activeDeckTab === 'histograms') && (
             <div
               className={
                 activeDeckTab === 'histograms'
@@ -276,7 +295,7 @@ export default function DiagnosticsDrawer() {
           )}
 
           {/* Section 4: Retro Terminal Output & Output Gauges */}
-          {(activeDeckTab === 'all' || activeDeckTab === 'terminal') && (
+          {uiMode === 'expert' && (activeDeckTab === 'all' || activeDeckTab === 'terminal') && (
             <div
               className={
                 activeDeckTab === 'terminal'

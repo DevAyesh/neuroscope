@@ -170,6 +170,18 @@ export interface NetworkStoreState {
   addCustomPoint: (x: number, y: number, classType: 0 | 1) => void;
   clearCustomDataset: () => void;
   resetDatasetToPreset: () => void;
+
+  // FPS & Performance (Fix 1)
+  fps: number;
+  hasAutoReducedSpeed: boolean;
+  setFps: (fps: number) => void;
+
+  // UI Mode (Fix 4: Beginner / Expert)
+  uiMode: 'beginner' | 'expert';
+  setUiMode: (mode: 'beginner' | 'expert') => void;
+
+  // Guided Tour Helper (Fix 3)
+  setTourActive: (active: boolean) => void;
 }
 
 const defaultPreset = PRESET_SCENARIOS[0];
@@ -202,10 +214,14 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
   showParticles: true,
   minWeightThreshold: 0.04,
   viewportZoom: 1.0,
-
   isAudioMuted: true,
   isTourOpen: false,
   isLearningGuideOpen: false,
+  fps: 60,
+  hasAutoReducedSpeed: false,
+  uiMode: (typeof window !== 'undefined'
+    ? (localStorage.getItem('neuroscope_ui_mode') as 'beginner' | 'expert' | null) ?? 'expert'
+    : 'expert'),
   tourStep: 0,
   spotlightTarget: null,
   secondarySpotlightTarget: null,
@@ -316,6 +332,30 @@ export const useNetworkStore = create<NetworkStoreState>((set, get) => ({
   },
 
   setTrainingSpeed: (trainingSpeed) => set({ trainingSpeed }),
+  setFps: (fps) => {
+    const state = get();
+    if (fps < 10 && state.trainingSpeed > 1 && !state.hasAutoReducedSpeed) {
+      set({ fps, trainingSpeed: 1, hasAutoReducedSpeed: true });
+      get().addLog('warn', `Low FPS (${fps}) detected. Training speed automatically reduced to 1x.`);
+    } else {
+      set({ fps });
+    }
+  },
+  setUiMode: (uiMode) => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('neuroscope_ui_mode', uiMode);
+      } catch (_) {}
+    }
+    set({ uiMode });
+  },
+  setTourActive: (active) => {
+    if (active) {
+      get().startTour(0);
+    } else {
+      get().closeTour();
+    }
+  },
   setShowBackpropGradients: (showBackpropGradients) => set({ showBackpropGradients }),
   setShowOscilloscopes: (showOscilloscopes) => set({ showOscilloscopes }),
   setShowParticles: (showParticles) => set({ showParticles }),

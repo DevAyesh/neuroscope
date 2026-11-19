@@ -56,8 +56,28 @@ export default function TopControlBar() {
 
   const [copied, setCopied] = useState(false);
   const [presetDropdownOpen, setPresetDropdownOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [isFirstTime, setIsFirstTime] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close more dropdown on outside click or Escape key
+  useEffect(() => {
+    if (!moreOpen) return;
+    const handler = (e: MouseEvent | TouchEvent) => {
+      if (!(e.target as Element).closest('#more-dropdown')) setMoreOpen(false);
+    };
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMoreOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler);
+    window.addEventListener('keydown', keyHandler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+      window.removeEventListener('keydown', keyHandler);
+    };
+  }, [moreOpen]);
 
   // Close preset dropdown on outside click or Escape key
   useEffect(() => {
@@ -416,51 +436,70 @@ export default function TopControlBar() {
           <span className="hidden sm:inline">{!isAudioMuted ? 'SYNTH ON' : 'SYNTH'}</span>
         </button>
 
-        {/* Export Checkpoint */}
-        <button
-          onClick={exportCheckpoint}
-          title="Save checkpoint JSON (download weights + epoch)"
-          className="flex items-center space-x-1 px-1.5 py-1 rounded-[2px] font-mono text-xs border border-[#2a2b30] bg-[#1f2024] text-zinc-300 hover:text-white hover:bg-[#25272c] transition-colors shrink-0"
-        >
-          <span>💾</span>
-          <span className="hidden sm:inline">EXPORT</span>
-        </button>
+        {/* More Actions Dropdown (Fix 2: EXPORT, IMPORT, SHARE) */}
+        <div id="more-dropdown" className="relative shrink-0">
+          <button
+            onClick={() => setMoreOpen((o) => !o)}
+            aria-haspopup="true"
+            aria-expanded={moreOpen}
+            title="More Options (Export, Import, Share)"
+            className={`flex items-center space-x-1 px-2 py-1 rounded-[2px] font-mono text-xs border transition-colors ${
+              moreOpen
+                ? 'bg-[#25272c] border-cyan-500 text-cyan-300'
+                : 'bg-[#1f2024] border-[#2a2b30] hover:border-cyan-500/70 text-zinc-300 hover:text-cyan-400'
+            }`}
+          >
+            <span>⋯ MORE</span>
+            <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform duration-200 ${moreOpen ? 'rotate-180 text-cyan-300' : ''}`} />
+          </button>
 
-        {/* Import Checkpoint */}
-        <label
-          title="Load checkpoint JSON (restore weights + epoch)"
-          className="flex items-center space-x-1 px-1.5 py-1 rounded-[2px] font-mono text-xs border border-[#2a2b30] bg-[#1f2024] text-zinc-300 hover:text-white hover:bg-[#25272c] transition-colors shrink-0 cursor-pointer"
-        >
-          <span>📂</span>
-          <span className="hidden sm:inline">IMPORT</span>
-          <input
-            type="file"
-            accept=".json"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              const reader = new FileReader();
-              reader.onload = (ev) => importCheckpoint(ev.target?.result as string);
-              reader.readAsText(file);
-              e.target.value = '';
-            }}
-          />
-        </label>
+          {moreOpen && (
+            <div className="absolute right-0 top-full mt-1.5 z-50 bg-[#1e293b] border border-slate-600 rounded-[2px] shadow-2xl min-w-[145px] flex flex-col p-1 font-mono text-xs">
+              <button
+                onClick={() => {
+                  exportCheckpoint();
+                  setMoreOpen(false);
+                }}
+                className="px-2.5 py-1.5 text-left text-zinc-200 hover:text-white hover:bg-slate-700/80 rounded-[2px] flex items-center space-x-2 transition-colors"
+              >
+                <span>💾</span>
+                <span>EXPORT</span>
+              </button>
 
-        {/* Share Button */}
-        <button
-          onClick={handleShare}
-          title="Share Configuration (Copy URL with state)"
-          className={`flex items-center space-x-1 px-1.5 py-1 rounded-[2px] font-mono text-xs border transition-colors shrink-0 ${
-            copied
-              ? 'bg-[#25272c] border-emerald-500/60 text-emerald-300'
-              : 'bg-[#1f2024] border-[#2a2b30] text-zinc-300 hover:text-white'
-          }`}
-        >
-          {copied ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-          <span className="hidden sm:inline">{copied ? 'COPIED!' : 'SHARE'}</span>
-        </button>
+              <label
+                className="px-2.5 py-1.5 text-left text-zinc-200 hover:text-white hover:bg-slate-700/80 rounded-[2px] flex items-center space-x-2 cursor-pointer transition-colors"
+              >
+                <span>📂</span>
+                <span>IMPORT</span>
+                <input
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => importCheckpoint(ev.target?.result as string);
+                    reader.readAsText(file);
+                    e.target.value = '';
+                    setMoreOpen(false);
+                  }}
+                />
+              </label>
+
+              <button
+                onClick={() => {
+                  handleShare();
+                  setMoreOpen(false);
+                }}
+                className="px-2.5 py-1.5 text-left text-zinc-200 hover:text-white hover:bg-slate-700/80 rounded-[2px] flex items-center space-x-2 transition-colors"
+              >
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5 text-zinc-400" />}
+                <span>{copied ? 'COPIED!' : 'SHARE'}</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

@@ -73,6 +73,7 @@ export default function NetworkCanvas() {
     backpropPulseCount,
     setSpotlightTarget,
     setSecondarySpotlightTarget,
+    setFps: setStoreFps,
   } = useNetworkStore();
 
   interface HeaderClickBox {
@@ -97,6 +98,8 @@ export default function NetworkCanvas() {
 
   const [fps, setFps] = useState(60);
   const [zoomDisplay, setZoomDisplay] = useState(100);
+  const [showZoomTip, setShowZoomTip] = useState(false);
+  const zoomTipShown = useRef(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
   const nodeCoordsRef = useRef<NodeCoord[]>([]);
@@ -107,6 +110,16 @@ export default function NetworkCanvas() {
   const lastFpsCalcTimeRef = useRef(performance.now());
   const waveTimeRef = useRef(0);
   const hasUserInteractedRef = useRef(false);
+
+  // Zoom tip toast on low zoom (Fix 6)
+  useEffect(() => {
+    if (zoomDisplay < 50 && !zoomTipShown.current) {
+      zoomTipShown.current = true;
+      setShowZoomTip(true);
+      const t = setTimeout(() => setShowZoomTip(false), 5000);
+      return () => clearTimeout(t);
+    }
+  }, [zoomDisplay]);
 
   // Helper spacing metrics to ensure circles never overlap and fit nicely
   const getLayerSpacing = useCallback(
@@ -206,7 +219,9 @@ export default function NetworkCanvas() {
       // 1. Calculate FPS
       frameCountRef.current++;
       if (timestamp - lastFpsCalcTimeRef.current >= 1000) {
-        setFps(Math.round((frameCountRef.current * 1000) / (timestamp - lastFpsCalcTimeRef.current)));
+        const calculatedFps = Math.round((frameCountRef.current * 1000) / (timestamp - lastFpsCalcTimeRef.current));
+        setFps(calculatedFps);
+        setStoreFps(calculatedFps);
         frameCountRef.current = 0;
         lastFpsCalcTimeRef.current = timestamp;
       }
@@ -730,17 +745,32 @@ export default function NetworkCanvas() {
             ctx.lineTo(coord.x - r * 0.6, coord.y + r * 0.6);
             ctx.stroke();
           } else if (neuron.isDead) {
-            // Dying ReLU Necrotic State
-            ctx.fillStyle = 'rgba(127, 29, 29, 0.4)';
-            ctx.strokeStyle = '#ef4444';
+            // Dying ReLU Necrotic State - High-contrast amber + hatch pattern (Fix 7: Colorblind-Safe)
+            ctx.fillStyle = '#f59e0b22';
+            ctx.strokeStyle = '#d97706';
             ctx.lineWidth = 1.8;
             ctx.fill();
             ctx.stroke();
 
+            // Hatch lines
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(coord.x, coord.y, r, 0, Math.PI * 2);
+            ctx.clip();
+            ctx.strokeStyle = '#f59e0b55';
+            ctx.lineWidth = 1;
+            for (let d = -r * 2; d < r * 2; d += 4) {
+              ctx.beginPath();
+              ctx.moveTo(coord.x + d, coord.y - r);
+              ctx.lineTo(coord.x + d + r * 2, coord.y + r);
+              ctx.stroke();
+            }
+            ctx.restore();
+
             // Mini Dead Icon Marker inside circle
             const symbolScale = Math.max(0.7, Math.min(1.8, 1 / transformRef.current.zoom));
             ctx.font = `bold ${Math.max(10, Math.round(11 * symbolScale))}px "JetBrains Mono", monospace`;
-            ctx.fillStyle = '#f87171';
+            ctx.fillStyle = '#fbbf24';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText('†', coord.x, coord.y);
@@ -791,7 +821,7 @@ export default function NetworkCanvas() {
             : isHovered
             ? '#fef08a'
             : neuron.isDead
-            ? '#f87171'
+            ? '#f59e0b'
             : '#e4e4e7';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
@@ -1348,9 +1378,14 @@ export default function NetworkCanvas() {
           <div className="flex items-center space-x-1.5 px-2.5 py-1 bg-[#18191c] border border-[#2a2b30] rounded-[2px] text-[#e4e4e7]">
             <Activity className="w-3.5 h-3.5 text-[#3b82f6]" />
             <span className="text-zinc-300 font-semibold">FPS:</span>
-            <span className={fps >= 55 ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+            <span className={fps >= 55 ? 'text-emerald-400 font-bold' : fps >= 20 ? 'text-amber-400 font-bold' : 'text-red-400 font-bold'}>
               {fps}
             </span>
+            {fps < 10 ? (
+              <span className="ml-1 text-red-400 animate-pulse text-[10px]">🔴 LOW FPS</span>
+            ) : fps < 20 ? (
+              <span className="ml-1 text-amber-400 text-[10px]">⚠ SLOW</span>
+            ) : null}
           </div>
 
           <div className="flex items-center space-x-1.5 px-2.5 py-1 bg-[#18191c] border border-[#2a2b30] rounded-[2px] text-[#e4e4e7]">
@@ -1424,7 +1459,7 @@ export default function NetworkCanvas() {
                   <span>Hidden</span>
                 </div>
                 <div className="flex items-center space-x-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-950 border border-red-500 inline-block text-[8px] text-center leading-[8px] text-red-400 font-bold">†</span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-950/80 border border-amber-500 inline-block text-[8px] text-center leading-[8px] text-amber-400 font-bold">†</span>
                   <span>Dead ReLU</span>
                 </div>
                 <div className="flex items-center space-x-1.5">
@@ -1450,16 +1485,15 @@ export default function NetworkCanvas() {
         )}
       </div>
 
-      {/* Floating Bottom-Left Prompt / Interaction Tips */}
-      <div className="absolute bottom-3 left-4 hidden md:flex items-center space-x-2 text-[11px] font-mono pointer-events-none text-zinc-300 bg-[#18191c]/95 px-3 py-1 rounded-[2px] border border-[#2a2b30]">
-        <span className="text-[#3b82f6] font-semibold">[Click Node]</span>
-        <span>Kill / Dropout Neuron</span>
-        <span className="text-[#2a2b30]">|</span>
-        <span className="text-[#f59e0b] font-semibold">[Hover Node]</span>
-        <span>Formula Inspector</span>
-        <span className="text-[#2a2b30]">|</span>
-        <span className="text-zinc-100">[Drag &amp; Wheel]</span>
-        <span>Pan &amp; Zoom</span>
+      {/* Floating Bottom Prompt / Interaction Tips (Fix 5: Compact Icons + Wrap, Never Truncates) */}
+      <div className="absolute bottom-3 left-4 max-w-[calc(100%-8rem)] z-20 flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1 bg-[#0f141f]/90 border border-slate-800 rounded-[2px] text-[10px] font-mono text-slate-400 shadow-md pointer-events-none">
+        <span><span className="text-cyan-400 font-semibold">🖱 Click</span> Kill / Dropout</span>
+        <span><span className="text-amber-400 font-semibold">👁 Hover</span> Formula Inspector</span>
+        <span><span className="text-purple-400 font-semibold">✋ Drag</span> Pan Canvas</span>
+        <span><span className="text-slate-300 font-semibold">🔎 Scroll</span> Zoom In/Out</span>
+        <span><span className="text-green-400 font-semibold">⌨ R</span> Reset</span>
+        <span><span className="text-green-400 font-semibold">⌨ S</span> Step</span>
+        <span><span className="text-green-400 font-semibold">⌨ Space</span> Pause/Play</span>
       </div>
 
       {/* 2D Decision Boundary Canvas in the Corner per Requirement 4.4 */}
@@ -1498,6 +1532,17 @@ export default function NetworkCanvas() {
           <span className="hidden sm:inline">FIT TO VIEW</span>
         </button>
       </div>
+
+      {/* Zoom Tip Toast (Fix 6: Dismissible after 5s or click) */}
+      {showZoomTip && (
+        <div
+          onClick={() => setShowZoomTip(false)}
+          className="absolute top-12 right-4 z-30 bg-[#1e293b] border border-cyan-500/40 text-cyan-300 font-mono text-[10px] px-3 py-1.5 rounded shadow-xl cursor-pointer hover:border-cyan-400 transition-colors"
+          title="Click to dismiss"
+        >
+          🔍 Tip: Ctrl+Scroll to zoom · Fit View button to reset
+        </div>
+      )}
     </div>
   );
 }
